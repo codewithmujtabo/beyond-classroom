@@ -22,14 +22,20 @@ export default function ProfileScreen() {
 
   const menuItems = [
     {
-      emoji: "📋",
-      label: "My Registrations",
-      onPress: () => {},
+      emoji: "👤",
+      label: "Complete Profile",
+      onPress: () =>
+        router.push(
+          "/(tabs)/profile/setup",
+        ),
     },
     {
-      emoji: "🎓",
-      label: "My Certificates",
-      onPress: () => {},
+      emoji: "📄",
+      label: "Document Vault",
+      onPress: () =>
+        router.push(
+          "/(tabs)/profile/document-vault",
+        ),
     },
     {
       emoji: "🔔",

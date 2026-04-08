@@ -48,6 +48,7 @@ export function AppInput({
           onBlur={() =>
             setFocused(false)
           }
+          editable={true}
           {...props}
         />
         {rightIcon && (

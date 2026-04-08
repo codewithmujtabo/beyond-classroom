@@ -1,27 +1,29 @@
+import { supabase } from "@/config/supabase";
 import {
-  BANNERS,
-  CATEGORIES,
-  COMPETITIONS,
+    BANNERS,
+    CATEGORIES,
+    COMPETITIONS,
 } from "@/constants/competitions";
 import { Brand } from "@/constants/theme";
 import { useUser } from "@/context/UserContext";
 import { useRouter } from "expo-router";
 import React, {
-  useRef,
-  useState,
+    useEffect,
+    useRef,
+    useState,
 } from "react";
 import {
-  Dimensions,
-  FlatList,
-  Image,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Dimensions,
+    FlatList,
+    Image,
+    NativeScrollEvent,
+    NativeSyntheticEvent,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -276,9 +278,35 @@ function SectionHeader({
 }
 
 export default function HomeScreen() {
-  const { user } = useUser();
+  const { user, fetchUser } = useUser();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
+  // Load user from Supabase if not already loaded
+  useEffect(() => {
+    const loadUser = async () => {
+      // If user is already loaded, skip
+      if (user) return;
+
+      try {
+        const {
+          data: { user: authUser },
+        } =
+          await supabase.auth.getUser();
+
+        if (authUser?.id) {
+          await fetchUser(authUser.id);
+        }
+      } catch (err) {
+        console.error(
+          "Error loading user:",
+          err,
+        );
+      }
+    };
+
+    loadUser();
+  }, []);
 
   const [
     activeCategory,

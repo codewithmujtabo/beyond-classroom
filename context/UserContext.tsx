@@ -1,17 +1,14 @@
 /**
  * UserContext — provides the current logged-in user to the whole app.
- * During development, it uses MOCK_USER automatically.
- * When real auth is ready, just update the value here — nothing else changes.
+ * Fetches real user data from Supabase after login.
  */
 
-import {
-  AppUser,
-  MOCK_USER,
-} from "@/constants/mock-user";
+import { supabase } from "@/config/supabase";
+import { AppUser } from "@/constants/mock-user";
 import React, {
-  createContext,
-  useContext,
-  useState,
+    createContext,
+    useContext,
+    useState,
 } from "react";
 
 interface UserContextType {
@@ -19,6 +16,9 @@ interface UserContextType {
   setUser: (
     user: AppUser | null,
   ) => void;
+  fetchUser: (
+    userId: string,
+  ) => Promise<void>;
   registrations: Registration[];
   registerCompetition: (
     compId: string,
@@ -51,6 +51,7 @@ const UserContext =
   createContext<UserContextType>({
     user: null,
     setUser: () => {},
+    fetchUser: async () => {},
     registrations: [],
     registerCompetition: () => {},
     markRegistrationPaid: () => {},
@@ -62,9 +63,9 @@ export function UserProvider({
 }: {
   children: React.ReactNode;
 }) {
-  // Starts with MOCK_USER during dev — swap for null + real login later
+  // Start with null — fetch real user from Supabase after login
   const [user, setUser] =
-    useState<AppUser | null>(MOCK_USER);
+    useState<AppUser | null>(null);
   const [
     registrations,
     setRegistrations,
@@ -73,6 +74,56 @@ export function UserProvider({
     lastRegisteredId,
     setLastRegisteredId,
   ] = useState<string | null>(null);
+
+  // Fetch user from Supabase by ID
+  const fetchUser = async (
+    userId: string,
+  ) => {
+    try {
+      const { data, error } =
+        await supabase
+          .from("users")
+          .select("*")
+          .eq("id", userId)
+          .single();
+
+      if (error) {
+        console.error(
+          "Error fetching user:",
+          error,
+        );
+        return;
+      }
+
+      if (data) {
+        // Transform database user to AppUser format
+        const appUser: AppUser = {
+          id: data.id,
+          name: data.full_name || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          school: data.school || "",
+          level: data.grade as
+            | "SD"
+            | "SMP"
+            | "SMA"
+            | undefined,
+          city: data.city || "",
+          role:
+            (data.role as
+              | "student"
+              | "parent"
+              | "teacher") || "student",
+        };
+        setUser(appUser);
+      }
+    } catch (err) {
+      console.error(
+        "Error in fetchUser:",
+        err,
+      );
+    }
+  };
 
   function registerCompetition(
     compId: string,
@@ -123,6 +174,7 @@ export function UserProvider({
       value={{
         user,
         setUser,
+        fetchUser,
         registrations,
         registerCompetition,
         markRegistrationPaid,

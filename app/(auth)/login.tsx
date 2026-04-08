@@ -1,84 +1,258 @@
 import { AppInput } from "@/components/common/AppInput";
+import { supabase } from "@/config/supabase";
 import { Brand } from "@/constants/theme";
+import { useUser } from "@/context/UserContext";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const [phone, setPhone] =
+  const { fetchUser } = useUser();
+  const [email, setEmail] =
     useState("");
   const [password, setPassword] =
     useState("");
+  const [otp, setOtp] = useState("");
   const [
     showPassword,
     setShowPassword,
   ] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
+  const [loginMode, setLoginMode] =
+    useState<"password" | "otp">(
+      "password",
+    );
+  const [otpSent, setOtpSent] =
+    useState(false);
   const [errors, setErrors] = useState<{
-    phone?: string;
+    email?: string;
     password?: string;
+    otp?: string;
   }>({});
 
-  const validate = () => {
+  const validateForm = () => {
     const e: typeof errors = {};
-    if (!phone.trim())
-      e.phone =
-        "Phone number is required";
+    if (!email.trim())
+      e.email = "Email is required";
     else if (
-      phone.replace(/\D/g, "").length <
-      9
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        email,
+      )
     )
-      e.phone =
-        "Enter a valid phone number";
-    if (!password)
-      e.password =
-        "Password is required";
-    else if (password.length < 6)
-      e.password =
-        "Password must be at least 6 characters";
+      e.email = "Enter a valid email";
+    if (loginMode === "password") {
+      if (!password)
+        e.password =
+          "Password is required";
+      else if (password.length < 6)
+        e.password =
+          "Password must be at least 6 characters";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const handleLogin = () => {
-    if (!validate()) return;
-    // TODO: call auth API
-    router.replace("/(tabs)" as any);
+  const validateEmail = () => {
+    const e: typeof errors = {};
+    if (!email.trim())
+      e.email = "Email is required";
+    else if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        email,
+      )
+    )
+      e.email = "Enter a valid email";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const validateOtp = () => {
+    const e: typeof errors = {};
+    if (!otp.trim())
+      e.otp = "OTP is required";
+    else if (otp.length < 6)
+      e.otp =
+        "OTP must be at least 6 characters";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSendOtp = async () => {
+    if (!validateEmail()) return;
+
+    setLoading(true);
+    try {
+      const { error } =
+        await supabase.auth.signInWithOtp(
+          {
+            email: email.trim(),
+          },
+        );
+
+      if (error) {
+        Alert.alert(
+          "Error",
+          error.message,
+        );
+        return;
+      }
+
+      setOtpSent(true);
+      Alert.alert(
+        "Success",
+        "OTP sent to your email. Check your inbox.",
+      );
+    } catch (err) {
+      Alert.alert(
+        "Error",
+        "Failed to send OTP. Try again.",
+      );
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!validateOtp()) return;
+
+    setLoading(true);
+    try {
+      const { error } =
+        await supabase.auth.verifyOtp({
+          email: email.trim(),
+          token: otp,
+          type: "email",
+        });
+
+      if (error) {
+        Alert.alert(
+          "Error",
+          error.message,
+        );
+        return;
+      }
+
+      Alert.alert(
+        "Success",
+        "Logged in!",
+      );
+      // Wait for auth session to fully establish
+      await new Promise((resolve) =>
+        setTimeout(resolve, 500),
+      );
+      // Fetch user from database
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        await fetchUser(user.id);
+        router.replace("/(tabs)");
+      }
+    } catch (err) {
+      Alert.alert(
+        "Error",
+        "Invalid OTP. Try again.",
+      );
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!validateForm()) return;
+
+    setLoading(true);
+    try {
+      // Sign in with email and password
+      const { data, error } =
+        await supabase.auth.signInWithPassword(
+          {
+            email: email.trim(),
+            password: password.trim(),
+          },
+        );
+
+      if (error) {
+        if (
+          error.message
+            .toLowerCase()
+            .includes("invalid")
+        ) {
+          Alert.alert(
+            "Error",
+            "There is no user with this email or password is incorrect",
+          );
+        } else {
+          Alert.alert(
+            "Error",
+            error.message,
+          );
+        }
+        return;
+      }
+
+      if (data.user) {
+        Alert.alert(
+          "Success",
+          "Logged in!",
+        );
+        // Wait for auth session to fully establish
+        await new Promise((resolve) =>
+          setTimeout(resolve, 500),
+        );
+        // Fetch user from database
+        await fetchUser(data.user.id);
+        router.replace("/(tabs)");
+      }
+    } catch (err) {
+      console.error(
+        "Login error:",
+        err,
+      );
+      Alert.alert(
+        "Error",
+        "Login failed",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
       behavior={
         Platform.OS === "ios"
           ? "padding"
-          : undefined
+          : "height"
       }
+      style={styles.container}
     >
       <ScrollView
         contentContainerStyle={[
-          styles.container,
+          styles.scrollContent,
           {
             paddingTop: insets.top + 20,
-            paddingBottom:
-              insets.bottom + 24,
           },
         ]}
-        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={
           false
         }
       >
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoBox}>
             <Text
@@ -97,105 +271,191 @@ export default function LoginScreen() {
           </Text>
         </View>
 
-        {/* Form */}
-        <View style={styles.form}>
-          <AppInput
-            label="Phone Number"
-            placeholder="e.g. 08123456789"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            error={errors.phone}
-            maxLength={15}
-          />
-          <AppInput
-            label="Password"
-            placeholder="Enter your password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={
-              !showPassword
-            }
-            error={errors.password}
-            rightIcon={
-              <Text
-                style={styles.eyeIcon}
-              >
-                {showPassword
-                  ? "🙈"
-                  : "👁️"}
-              </Text>
-            }
-            onRightIconPress={() =>
-              setShowPassword((v) => !v)
-            }
-          />
-
+        {/* Login Mode Toggle */}
+        <View style={styles.modeToggle}>
           <TouchableOpacity
-            style={styles.forgotBtn}
-            activeOpacity={0.7}
+            style={[
+              styles.modeButton,
+              loginMode ===
+                "password" &&
+                styles.modeButtonActive,
+            ]}
+            onPress={() => {
+              setLoginMode("password");
+              setOtpSent(false);
+              setOtp("");
+              setErrors({});
+            }}
           >
             <Text
-              style={styles.forgotText}
+              style={[
+                styles.modeButtonText,
+                loginMode ===
+                  "password" &&
+                  styles.modeButtonTextActive,
+              ]}
             >
-              Forgot password?
+              Password
             </Text>
           </TouchableOpacity>
-
           <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={handleLogin}
-            activeOpacity={0.85}
+            style={[
+              styles.modeButton,
+              loginMode === "otp" &&
+                styles.modeButtonActive,
+            ]}
+            onPress={() => {
+              setLoginMode("otp");
+              setPassword("");
+              setOtpSent(false);
+              setOtp("");
+              setErrors({});
+            }}
+          >
+            <Text
+              style={[
+                styles.modeButtonText,
+                loginMode === "otp" &&
+                  styles.modeButtonTextActive,
+              ]}
+            >
+              OTP
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View
+          style={[
+            styles.form,
+            { gap: 16 },
+          ]}
+        >
+          <AppInput
+            label="Email"
+            placeholder="e.g. john@email.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            error={errors.email}
+            editable={!loading}
+          />
+
+          {loginMode === "password" ? (
+            <>
+              <AppInput
+                label="Password"
+                placeholder="Enter your password"
+                value={password}
+                onChangeText={
+                  setPassword
+                }
+                secureTextEntry={
+                  !showPassword
+                }
+                error={errors.password}
+                editable={!loading}
+              />
+
+              <TouchableOpacity
+                onPress={() =>
+                  setShowPassword(
+                    !showPassword,
+                  )
+                }
+              >
+                <Text
+                  style={
+                    styles.showPassword
+                  }
+                >
+                  {showPassword
+                    ? "Hide"
+                    : "Show"}{" "}
+                  password
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              {otpSent && (
+                <AppInput
+                  label="OTP Code"
+                  placeholder="Enter OTP from your email"
+                  value={otp}
+                  onChangeText={setOtp}
+                  error={errors.otp}
+                  editable={!loading}
+                  maxLength={6}
+                  keyboardType="number-pad"
+                />
+              )}
+            </>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.primaryButton,
+            loading &&
+              styles.primaryButtonDisabled,
+          ]}
+          onPress={
+            loginMode === "password"
+              ? handleLogin
+              : otpSent
+                ? handleVerifyOtp
+                : handleSendOtp
+          }
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator
+              color="white"
+              size="small"
+            />
+          ) : (
+            <Text
+              style={
+                styles.primaryButtonText
+              }
+            >
+              {loginMode === "password"
+                ? "Sign In"
+                : otpSent
+                  ? "Verify OTP"
+                  : "Send OTP"}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {otpSent && (
+          <TouchableOpacity
+            onPress={() => {
+              setOtpSent(false);
+              setOtp("");
+              setErrors({});
+            }}
           >
             <Text
               style={
-                styles.primaryBtnText
+                styles.showPassword
               }
             >
-              Sign In
+              Back
             </Text>
           </TouchableOpacity>
-        </View>
+        )}
 
-        {/* Divider */}
-        <View style={styles.dividerRow}>
-          <View
-            style={styles.dividerLine}
-          />
-          <Text
-            style={styles.dividerText}
-          >
-            or
-          </Text>
-          <View
-            style={styles.dividerLine}
-          />
-        </View>
-
-        {/* OTP option */}
-        <TouchableOpacity
-          style={styles.otpBtn}
-          activeOpacity={0.8}
-        >
-          <Text
-            style={styles.otpBtnText}
-          >
-            Sign in with OTP instead
-          </Text>
-        </TouchableOpacity>
-
-        {/* Footer */}
         <View style={styles.footer}>
           <Text
             style={styles.footerText}
           >
-            Don&apos;t have an
-            account?{" "}
+            Don't have an account?{" "}
           </Text>
           <TouchableOpacity
             onPress={() =>
               router.push(
-                "/(auth)/register" as any,
+                "/(auth)/register",
               )
             }
           >
@@ -213,28 +473,32 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
+    flex: 1,
     backgroundColor: "#F8FAFC",
-    paddingHorizontal: 24,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
   },
   header: {
     alignItems: "center",
-    marginBottom: 36,
+    marginBottom: 40,
   },
   logoBox: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: "#EEF2FF",
-    alignItems: "center",
+    width: 60,
+    height: 60,
+    borderRadius: 16,
+    backgroundColor:
+      Brand.primary + "20",
     justifyContent: "center",
-    marginBottom: 20,
+    alignItems: "center",
+    marginBottom: 16,
   },
   logoEmoji: {
-    fontSize: 36,
+    fontSize: 32,
   },
   title: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: "800",
     color: "#0F172A",
     marginBottom: 8,
@@ -243,87 +507,71 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#64748B",
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 20,
   },
   form: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
     marginBottom: 24,
   },
-  eyeIcon: {
-    fontSize: 18,
-  },
-  forgotBtn: {
-    alignSelf: "flex-end",
-    marginBottom: 20,
-    marginTop: -4,
-  },
-  forgotText: {
-    fontSize: 13,
+  showPassword: {
     color: Brand.primary,
+    fontSize: 13,
     fontWeight: "600",
-  },
-  primaryBtn: {
-    backgroundColor: Brand.primary,
-    paddingVertical: 15,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  primaryBtnText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
     marginBottom: 16,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#E2E8F0",
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    fontSize: 13,
-    color: "#94A3B8",
-  },
-  otpBtn: {
-    borderWidth: 1.5,
-    borderColor: Brand.primary,
-    paddingVertical: 14,
+  primaryButton: {
+    backgroundColor: Brand.primary,
     borderRadius: 12,
+    paddingVertical: 14,
     alignItems: "center",
-    marginBottom: 32,
+    marginBottom: 24,
   },
-  otpBtnText: {
-    color: Brand.primary,
+  primaryButtonDisabled: {
+    opacity: 0.6,
+  },
+  primaryButtonText: {
+    color: "#fff",
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
-    alignItems: "center",
+    gap: 4,
   },
   footerText: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#64748B",
   },
   footerLink: {
-    fontSize: 14,
+    fontSize: 13,
     color: Brand.primary,
     fontWeight: "700",
+  },
+  modeToggle: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 24,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+  },
+  modeButtonActive: {
+    backgroundColor: Brand.primary,
+    borderColor: Brand.primary,
+  },
+  modeButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  modeButtonTextActive: {
+    color: "#fff",
   },
 });

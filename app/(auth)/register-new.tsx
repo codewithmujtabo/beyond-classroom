@@ -5,15 +5,15 @@ import { useUser } from "@/context/UserContext";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -231,94 +231,61 @@ export default function RegisterScreen() {
           setTimeout(resolve, 500),
         );
 
-        // 3. Check if user already exists in database
-        const { data: existingUser } =
+        // 3. Insert into users table
+        const { error: userError } =
           await supabase
             .from("users")
-            .select("id")
-            .eq("id", userId)
-            .single();
+            .insert([
+              {
+                id: userId,
+                email: email.trim(),
+                full_name: name.trim(),
+                phone: phone.trim(),
+                city: city.trim(),
+                role: role,
+              },
+            ]);
 
-        // 3a. If user doesn't exist, insert into users table
-        if (!existingUser) {
-          const { error: userError } =
-            await supabase
-              .from("users")
-              .insert([
-                {
-                  id: userId,
-                  email: email.trim(),
-                  full_name:
-                    name.trim(),
-                  phone: phone.trim(),
-                  city: city.trim(),
-                  role: role,
-                },
-              ]);
-
-          if (userError) {
-            console.error(
-              "User insert error:",
-              userError,
-            );
-            Alert.alert(
-              "Error",
-              `Failed to save profile: ${userError.message}`,
-            );
-            return;
-          }
+        if (userError) {
+          console.error(
+            "User insert error:",
+            userError,
+          );
+          Alert.alert(
+            "Error",
+            `Failed to save profile: ${userError.message}`,
+          );
+          return;
         }
 
         // 4. Insert into role-specific tables
         if (role === "student") {
-          // Check if student record already exists
           const {
-            data: existingStudent,
+            error: studentError,
           } = await supabase
             .from("students")
-            .select("id")
-            .eq("id", userId)
-            .single();
+            .insert([
+              {
+                id: userId,
+                school: school.trim(),
+                grade: grade,
+              },
+            ]);
 
-          if (!existingStudent) {
-            const {
-              error: studentError,
-            } = await supabase
-              .from("students")
-              .insert([
-                {
-                  id: userId,
-                  school: school.trim(),
-                  grade: grade,
-                },
-              ]);
-
-            if (studentError) {
-              console.error(
-                "Student insert error:",
-                studentError,
-              );
-              Alert.alert(
-                "Error",
-                `Failed to save student data: ${studentError.message}`,
-              );
-              return;
-            }
+          if (studentError) {
+            console.error(
+              "Student insert error:",
+              studentError,
+            );
+            Alert.alert(
+              "Error",
+              `Failed to save student data: ${studentError.message}`,
+            );
+            return;
           }
         } else if (role === "parent") {
-          // Check if parent record already exists
-          const {
-            data: existingParent,
-          } = await supabase
-            .from("parents")
-            .select("id")
-            .eq("id", userId)
-            .single();
-
-          if (!existingParent) {
-            const {
-              error: parentError,
-            } = await supabase
+          const { error: parentError } =
+            await supabase
               .from("parents")
               .insert([
                 {
@@ -332,65 +299,47 @@ export default function RegisterScreen() {
                 },
               ]);
 
-            if (parentError) {
-              console.error(
-                "Parent insert error:",
-                parentError,
-              );
-              Alert.alert(
-                "Error",
-                `Failed to save parent data: ${parentError.message}`,
-              );
-              return;
-            }
+          if (parentError) {
+            console.error(
+              "Parent insert error:",
+              parentError,
+            );
+            Alert.alert(
+              "Error",
+              `Failed to save parent data: ${parentError.message}`,
+            );
+            return;
           }
         } else if (role === "teacher") {
-          // Check if teacher record already exists
           const {
-            data: existingTeacher,
+            error: teacherError,
           } = await supabase
             .from("teachers")
-            .select("id")
-            .eq("id", userId)
-            .single();
+            .insert([
+              {
+                id: userId,
+                school:
+                  teacherSchool.trim(),
+                subject: subject.trim(),
+              },
+            ]);
 
-          if (!existingTeacher) {
-            const {
-              error: teacherError,
-            } = await supabase
-              .from("teachers")
-              .insert([
-                {
-                  id: userId,
-                  school:
-                    teacherSchool.trim(),
-                  subject:
-                    subject.trim(),
-                },
-              ]);
-
-            if (teacherError) {
-              console.error(
-                "Teacher insert error:",
-                teacherError,
-              );
-              Alert.alert(
-                "Error",
-                `Failed to save teacher data: ${teacherError.message}`,
-              );
-              return;
-            }
+          if (teacherError) {
+            console.error(
+              "Teacher insert error:",
+              teacherError,
+            );
+            Alert.alert(
+              "Error",
+              `Failed to save teacher data: ${teacherError.message}`,
+            );
+            return;
           }
         }
 
         Alert.alert(
           "Success",
           "Account created! Welcome to Beyond Classroom",
-        );
-
-        // Wait for auth session to fully establish before fetching user data
-        await new Promise((resolve) =>
-          setTimeout(resolve, 1000),
         );
 
         // Fetch user data into context
@@ -911,7 +860,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   rolesContainer: {
-    flexDirection: "column",
+    flexDirection: "row",
     justifyContent: "center",
     gap: 16,
     marginBottom: 24,
@@ -1050,12 +999,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center",
   },
+  registerBtnDisabled: {
+    opacity: 0.6,
+  },
   registerBtnText: {
     color: "#fff",
     fontSize: 15,
     fontWeight: "700",
-  },
-  registerBtnDisabled: {
-    opacity: 0.6,
   },
 });

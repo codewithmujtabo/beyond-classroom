@@ -1,471 +1,398 @@
-# Beyond Classroom 🎓
+# 🏆 Beyond Classroom - K-12 Competition Hub for Indonesia
 
-A mobile application built with Expo and React Native that helps students discover, register for, and manage academic competitions and educational opportunities.
-
-## 📋 Project Overview
-
-**Beyond Classroom** is a competition management platform that connects students with various academic competitions and events. The app provides a user-friendly interface to browse competitions, register, manage payments, and stay updated with announcements.
-
-### Key Features:
-
-- 🏆 **Browse Competitions** - Discover various academic competitions across different categories
-- 📝 **Easy Registration** - Quick registration process for competitions
-- 💳 **Payment Tracking** - Track payment status and manage fees
-- 📰 **News & Updates** - Stay informed with latest announcements
-- 👤 **User Profile** - Manage personal information and registrations
-- 📱 **Cross-Platform** - Works on iOS, Android, and Web
+**One-stop registration & payment platform for K-12 competitions in Indonesia**
 
 ---
 
-## 🛠️ Tech Stack
+## 📋 Overview
 
-| Technology            | Version  | Purpose                              |
-| --------------------- | -------- | ------------------------------------ |
-| **Expo**              | ~54.0.33 | Cross-platform development framework |
-| **React Native**      | 0.81.5   | Mobile UI components                 |
-| **React**             | 19.1.0   | Core framework                       |
-| **TypeScript**        | ~5.9.2   | Type-safe development                |
-| **Expo Router**       | ~6.0.23  | File-based routing (like Next.js)    |
-| **React Navigation**  | Latest   | Bottom tabs & native navigation      |
-| **Safe Area Context** | ~5.6.0   | Safe area handling                   |
+Beyond Classroom solves the fragmentation problem: students, parents, and schools currently manage competition registrations across dozens of websites with different forms, payment methods, and deadlines.
+
+**Our Solution:** A unified mobile + web platform that aggregates competitions, handles payments, and keeps all stakeholders informed.
 
 ---
 
-## 📁 Project Structure
+## 🔐 Authentication
+
+### **Signup (Registration)**
+
+- **Email** - Required (for login)
+- **Password** - 6+ characters
+- **Phone Number** - For contact
+- **Full Name** - User's name
+- **School Name** - School/Institution
+- **City** - Location
+- **Role** - Student, Parent, or Teacher
+- **Grade** - Only if Student role
+
+✅ Data saved directly to database on signup
+✅ User can login immediately after registration
+
+### **Login**
+
+#### Mode 1: Password Login
+
+- Enter **Phone Number** + **Password**
+- Validates against database user record
+- Quick sign-in
+
+#### Mode 2: OTP Login
+
+- Enter **Email**
+- Click "Send OTP" → Check email for 6-digit code
+- Enter OTP → Click "Verify OTP"
+- Sign-in complete
+
+Switch between modes using the "or" buttons
+
+---
+
+## 🎯 Project Scope
+
+**Market:** Indonesia | **Platform:** Mobile-first (iOS + Android) + Web | **Version:** v1.0
+
+| Metric                | Target          |
+| --------------------- | --------------- |
+| 6-month registrations | 1,000 completed |
+| Active competitions   | 50+ listings    |
+| Organizer partners    | 5+ onboarded    |
+| Payment success rate  | ≥95%            |
+| D30 retention         | ≥40%            |
+
+---
+
+## � User Personas
+
+- **Student (P1)** 🎒 — Discover & register for competitions
+- **Parent (P2)** 👨‍👧 — Monitor child's registrations & pay
+- **Teacher (P3)** 📖 — Bulk register students from school
+- **Organizer (P4)** 🎯 — Create competitions & review registrations
+- **Representative (P5)** 🤝 — Regional partner (v2 scope)
+
+---
+
+## � Core Features (v1)
+
+### **Discovery**
+
+- Browse by category, grade level, deadline, fee
+- Search competitions
+- See organizer info
+
+### **Registration (4-Step Modal)**
+
+1. Review auto-filled profile info
+2. Attach documents from vault
+3. Choose payment method (GoPay, OVO, Dana, Bank VA)
+
+---
+
+## 📱 User Registration Flow
+
+### **Step 1: Role Selection**
+
+Choose: Student / Parent / Teacher
+
+### **Step 2: Phone + OTP**
+
+- Enter Indonesian phone number (08xxx or +62xxx)
+- Receive 6-digit OTP via SMS
+- Verify OTP
+
+### **Step 3: Complete Details**
+
+- Full name (required)
+- School name (required)
+- Grade (for students only)
+- City (required)
+
+### **Step 4: Account Created**
+
+- Auto-saved to Supabase
+- Redirected to home
+- First-time users see profile setup screen
+
+### **After Login: Profile Setup**
+
+- Add NISN (16-digit National ID)
+- Add photo
+- Configure notification preferences
+- Upload documents to vault
+
+---
+
+## 📝 Competition Registration (4-Step Modal)
+
+1. **Review Info** — Name, school, grade auto-filled
+2. **Attach Documents** — Select from vault or upload new
+3. **Choose Payment** — GoPay, OVO, Dana, Bank Transfer
+4. **Confirm & Pay** — Order summary → Deep-link to payment
+
+**Payment Status Updates:**
+
+- Pending → Paid (via webhook from Midtrans)
+- Organizer reviews → Confirmed or Rejected
+- Notifications sent via push + WhatsApp
+
+---
+
+## 💳 Payment Flow
 
 ```
-beyond-classroom/
-├── app/                          # Expo Router file-based app routing
-│   ├── (tabs)/                   # Bottom tab navigation group
-│   │   ├── _layout.tsx          # Tab layout with 5 main screens
-│   │   ├── index.tsx            # Home screen - banners, categories, recommendations
-│   │   ├── competitions.tsx      # Browse all competitions
-│   │   ├── competitions/
-│   │   │   └── [id].tsx         # Competition detail page (dynamic route)
-│   │   ├── my-competitions.tsx   # Track registered competitions
-│   │   ├── news.tsx             # News & announcements feed
-│   │   └── profile.tsx          # User profile & settings
-│   ├── (auth)/                   # Authentication screens (placeholder)
-│   ├── (onboarding)/            # Onboarding screens (placeholder)
-│   ├── index.tsx                # Root app layout
-│   └── _layout.tsx              # App-level layout wrapper
-│
-├── components/                   # Reusable UI components
-│   ├── ui/                       # Design system components
-│   │   ├── icon-symbol.tsx      # Unified icon component
-│   │   └── collapsible.tsx      # Collapsible component
-│   ├── common/                   # App-specific common components
-│   ├── onboarding/              # Onboarding UI components
-│   ├── haptic-tab.tsx           # Tab with haptic feedback
-│   ├── themed-text.tsx          # Typography wrapper
-│   └── themed-view.tsx          # Container wrapper
-│
-├── constants/                    # App configuration & mock data
-│   ├── theme.ts                 # Design tokens, colors, spacing
-│   ├── competitions.ts          # Mock competition data (6 competitions)
-│   └── mock-user.ts             # Mock user data for development
-│
-├── context/                      # React Context for state management
-│   └── UserContext.tsx          # User auth & registration state
-│
-├── hooks/                        # Custom React hooks
-│   ├── use-color-scheme.ts      # Light/dark mode hook
-│   └── use-theme-color.ts       # Theme color hook
-│
-├── assets/                       # Static assets
-│   └── images/                   # App icons, splash screens, logos
-│
-├── scripts/                      # Utility scripts
-│   └── reset-project.js         # Clean project setup script
-│
-├── app.json                      # Expo app configuration
-├── package.json                  # Dependencies & scripts
-├── tsconfig.json                 # TypeScript configuration
-├── eslint.config.js             # Code linting rules
-└── README.md                     # This file
+User selects payment method
+  ↓
+Midtrans gateway session created
+  ↓
+Deep-link to e-wallet app OR show Bank VA
+  ↓
+User completes payment in wallet/bank
+  ↓
+Webhook callback received
+  ↓
+Registration status updated (paid)
+  ↓
+Success confirmation + receipt issued
+  ↓
+Student & parent notified via push + WA
 ```
 
 ---
 
-## 🎨 Design System
+## 🔔 Notification Strategy
 
-### Color Palette
+### **Push Notifications** (Firebase Cloud Messaging)
 
-- **Primary**: `#6366F1` (Indigo) - Main brand color
-- **Background**: `#F8FAFC` (Slate light)
-- **Text Dark**: `#0F172A` (Slate dark)
-- **Text Gray**: `#64748B` (Slate medium)
-- **Text Light**: `#94A3B8` (Slate light)
-- **Divider**: `#E2E8F0` (Slate lighter)
-- **Border**: `#EEF2FF` (Indigo light)
+- Registration confirmation
+- Payment confirmation
+- Organizer approval/rejection
+- Deadline reminders (3 days + 1 day before)
+- Recommended competitions (post-registration)
+- **Global cap:** 2 push/day per student
+- **Silent hours:** 10pm–8am
 
-### News Categories Color Coding
+### **WhatsApp** (WhatsApp Business API)
 
-- 🔧 **System**: Orange (#F59E0B) - System maintenance
-- 🏆 **Competition**: Green (#10B981) - New competitions
-- 💡 **Tips**: Blue (#3B82F6) - Helpful tips
-- ⚡ **Updates**: Purple (#8B5CF6) - Platform updates
+- Registration confirmation
+- Payment status
+- Organizer decision
+- Deadline urgency
+- **Cap:** 2 WA/week per student
+- Uses pre-approved Meta templates
 
----
+### **In-App Notifications**
 
-## 📱 Screen Details
-
-### 1. **Home Screen** (`index.tsx`)
-
-**Purpose**: Main entry point with quick access to competitions
-
-- Banner carousel (featured competitions)
-- Category filter/navigation
-- Recommended competitions section
-- Quick stats or achievements (placeholder for future)
-
-### 2. **Competitions Screen** (`competitions.tsx`)
-
-**Purpose**: Browse and search all available competitions
-
-- Searchable list of all competitions
-- Filter by category, grade, price, deadline
-- Competition cards showing:
-  - Title, organizer, category
-  - Grade levels, deadline
-  - Registration fee
-  - Visual emoji icon
-
-**Navigation**: Tap competition → Competition Detail page
-
-### 3. **Competition Detail Screen** (`competitions/[id].tsx`)
-
-**Purpose**: Full information about a specific competition
-
-- **Three Tabs**:
-  1. **Halaman Utama** (Overview) - Description, timeline, prize info
-  2. **Pendaftaran** (Registration) - Registration requirements & form
-  3. **Pembayaran** (Payment) - Payment details & status
-- Smart back button that returns to origin (Home or Competitions tab)
-- Register button at footer
-- Tab state resets when opening different competitions
-
-### 4. **My Competitions Screen** (`my-competitions.tsx`)
-
-**Purpose**: Track user's registered competitions
-
-- List of competitions user registered for
-- Registration status badges:
-  - 🟡 "Registered" (default)
-  - 🟢 "Paid" (payment confirmed)
-- "Mark as Paid" button to update payment status
-- Action buttons to manage registrations
-
-### 5. **News & Announcements Screen** (`news.tsx`)
-
-**Purpose**: Stay updated with platform and competition news
-
-- **4 Sample Announcements** with categories:
-  - Maintenance notifications (🔧)
-  - New competitions (🏆)
-  - Tips & guides (💡)
-  - Platform updates (⚡)
-- **Features**:
-  - Color-coded category badges
-  - Preview text for quick scan
-  - **"View More" Button** - Opens expandable modal with full text
-  - Beautiful detail modal with:
-    - Large category icon
-    - Full announcement text
-    - Scrollable content for long announcements
-    - Back button to close
-
-### 6. **Profile Screen** (`profile.tsx`)
-
-**Purpose**: User account & settings management
-
-- Placeholder for user information display
-- Settings options (ready for expansion)
+- Bell icon inbox
+- 30-day archive
+- Mark as read
+- Delete options
 
 ---
 
-## 🔄 State Management
+## 🔐 Security & Privacy
 
-### UserContext (`context/UserContext.tsx`)
-
-Central state management for user data and registrations.
-
-**Features**:
-
-- Manages current logged-in user
-- Tracks competition registrations with status
-- Payment status tracking
-- Mock user for development
-
-**Key Functions**:
-
-```typescript
-registerCompetition(compId: string)    // Register for a competition
-markRegistrationPaid(id: string)       // Update payment status
-removeRegistration(id: string)         // Cancel registration
-```
-
-**Status Types**:
-
-- `registered` - Initial registration status
-- `paid` - Payment confirmed
-- `completed` - Competition finished
+✅ **Phone OTP** — More secure than passwords
+✅ **Row-Level Security (RLS)** — Database enforces access control
+✅ **Encrypted Storage** — Documents encrypted at rest in S3
+✅ **HTTPS** — All API calls encrypted
+✅ **PDPA Compliance** — Data privacy for student documents (Indonesia law)
+✅ **No Password Storage** — Stateless OTP authentication
 
 ---
 
-## 📊 Mock Data
+## 📊 Engagement Features
 
-### Competitions (`constants/competitions.ts`)
+### **Personalized Discovery**
 
-- **6 Sample Competitions** with full details:
-  1. English Math Championship (Free)
-  2. ISPO Science Olympiad (Rp 75,000)
-  3. OSEBI Economics (Rp 100,000)
-  4. National English Debate (Rp 50,000)
-  5. Robotics Challenge 2026 (Rp 125,000)
-  6. Programming Competition (Rp 75,000)
+- "Recommended for you" section based on:
+  - Student's grade level
+  - Past registration categories
+  - Never shows already-registered competitions
 
-Each competition includes:
+### **Smart Notifications**
 
-- Title, organizer, category
-- Grade levels, registration deadline
-- Price, timeline, age range
-- Description, event steps
-- Prize information
+- Post-registration nudge (30 min after payment)
+- New competition alerts (match grade + category)
+- Deadline urgency nudges
 
-### User (`constants/mock-user.ts`)
+### **Weekly Digest** (v2)
 
-- Mock user profile data
-- Pre-loaded registrations for testing
-
-### News (`app/(tabs)/news.tsx`)
-
-- **4 Sample Announcements**:
-  1. Maintenance Window
-  2. New Competition: City Math Cup
-  3. Tips for Online Competitions
-  4. Platform Update v2.1
+- Email summary
+- WhatsApp summary
+- Customizable preferences
 
 ---
 
-## ⚙️ Setup & Installation
+## 🎯 Success Metrics
 
-### Prerequisites
+Track & optimize:
 
-- **Node.js** (v16 or higher)
-- **npm** or **yarn**
-- **Expo CLI** (optional, will use npx)
+| Metric                | Definition                               |
+| --------------------- | ---------------------------------------- |
+| **Signup Rate**       | Users who complete registration          |
+| **Registration Rate** | Users who register for ≥1 competition    |
+| **Payment Success**   | Registrations that complete payment ≥95% |
+| **Completion Rate**   | Registrations approved by organizer      |
+| **D30 Retention**     | Users who return within 30 days ≥40%     |
+| **Organizer NPS**     | Net Promoter Score from organizers ≥50   |
 
-### Step 1: Clone Repository
+---
 
-```bash
-git clone https://github.com/yourusername/beyond-classroom.git
-cd beyond-classroom
-```
+## 🛠️ Development Environment
 
-### Step 2: Install Dependencies
+### **Required**
+
+- Node.js 16+
+- npm or yarn
+- Expo CLI
+
+### **Recommended**
+
+- TypeScript knowledge
+- React Native basics
+- Supabase account
+
+### **Install & Run**
 
 ```bash
 npm install
-```
-
-This installs all packages listed in `package.json`:
-
-- Expo framework & tools
-- React Native components
-- Navigation libraries
-- Type definitions
-
-### Step 3: Start Development Server
-
-```bash
 npm start
-# or
-npx expo start
-```
-
-**Output** will show options to run the app:
-
-```
-Press 'a' to open Android emulator
-Press 'i' to open iOS simulator
-Press 'w' to open web
-Press 's' to send the app URL to your phone
-Press 'j' to open Expo DevTools
-Press 'r' to reload the app
-Press 'q' to quit
+# Scan QR code with Expo Go (iOS/Android)
+# Or press 'w' for web browser
 ```
 
 ---
 
-## 🚀 Running the App
+## 📝 Database Setup
 
-### Option 1: iOS Simulator
-
-```bash
-npm start
-# Then press 'i' in the terminal
-```
-
-**Requirements**: macOS with Xcode & iOS Simulator installed
-
-### Option 2: Android Emulator
+Run SQL from `DATABASE_SETUP.sql` in Supabase:
 
 ```bash
-npm start
-# Then press 'a' in the terminal
-```
-
-**Requirements**: Android Studio & Android Emulator installed
-
-### Option 3: Physical Device (Recommended for Testing)
-
-1. Install **Expo Go** app from App Store / Play Store
-2. Run:
-   ```bash
-   npm start
-   # or
-   npx expo start
-   ```
-3. Scan the QR code with Expo Go (iOS) or the camera app (Android)
-4. App opens in Expo Go
-
-### Option 4: Web Browser
-
-```bash
-npm start
-# Then press 'w' in the terminal
-```
-
-Opens at `http://localhost:19006`
-
----
-
-## 🧪 Development Workflow
-
-### Code Structure
-
-- **File-based Routing**: Add screens by creating files in `app/` directory
-- **TypeScript**: Type-safe development with full IDE support
-- **Hot Reload**: Changes apply instantly without restarting
-
-### Key Commands
-
-| Command                 | Purpose                            |
-| ----------------------- | ---------------------------------- |
-| `npm start`             | Start development server           |
-| `npm run android`       | Run on Android emulator            |
-| `npm run ios`           | Run on iOS simulator               |
-| `npm run web`           | Run in web browser                 |
-| `npm run lint`          | Check code quality                 |
-| `npm run reset-project` | Reset app directory to blank state |
-
-### Code Linting
-
-```bash
-npm run lint
-```
-
-Uses ESLint configured for Expo projects.
-
----
-
-## 🔄 Routing Architecture
-
-This app uses **Expo Router** (file-based routing, similar to Next.js):
-
-```
-app/
-  (tabs)/              # Group - Bottom tab navigation
-    _layout.tsx        # Defines the 5 tab screens
-    index.tsx          # Home tab
-    competitions.tsx   # Competitions tab
-    competitions/[id].tsx  # Dynamic route - shows specific competition
-    my-competitions.tsx    # My Comps tab
-    news.tsx           # News tab
-    profile.tsx        # Profile tab
-```
-
-**Navigation Pattern**:
-
-- **Tab Navigation**: Switch between Home, Competitions, My Comps, News, Profile
-- **Stack Navigation**: Competitions list → Competition detail → Back to list
-- **Dynamic Routes**: `competitions/[id]` loads different competitions based on ID
-- **Route Parameters**: `from: "competitions"` tracks navigation origin for smart back button
-
----
-
-## 🎯 Navigation Flow
-
-```
-App Start
-├── Home Screen
-│   ├── Banners
-│   ├── Categories
-│   └── Recommended → [Tap] → Competition Detail (from: "home")
-│
-├── Competitions Screen
-│   ├── All competitions list
-│   └── [Tap competition] → Competition Detail (from: "competitions")
-│       ├── Overview tab
-│       ├── Registration tab
-│       ├── Payment tab
-│       └── Back → Returns to Competitions
-│
-├── My Competitions Screen
-│   ├── Registered competitions
-│   ├── Mark as Paid button
-│   └── Remove registration
-│
-├── News & Announcements
-│   ├── 4 announcements with categories
-│   └── [Tap "View More"] → Opens modal with full text
-│
-└── Profile Screen
-    └── User information & settings
+# 1. Go to Supabase Dashboard
+# 2. SQL Editor → Paste entire DATABASE_SETUP.sql
+# 3. Execute
+# 4. Tables created: users, competitions, registrations, documents, payments
 ```
 
 ---
 
-## 🔐 Authentication (Ready for Integration)
+## � Authentication Setup
 
-Currently using **mock user** for development. To integrate real authentication:
+In Supabase Dashboard:
 
-1. Update `context/UserContext.tsx`:
-   - Replace `MOCK_USER` with real API call
-   - Add login/logout functions
-   - Connect to your auth backend
-
-2. Create auth screens in `app/(auth)/`:
-   - Login screen
-   - Sign-up screen
-   - Password reset
-
-3. Update `app/_layout.tsx` to redirect to auth if not logged in
+1. **Authentication** → **Providers**
+2. Enable **Phone** provider (for OTP)
+3. Or enable **Email** provider (for development testing)
+4. Disable email confirmation (auto-confirm users)
 
 ---
 
-## 📦 Deployment
+## 📱 Screen Inventory
 
-### Build for Production
+### **Student Mobile App**
 
-```bash
-# Create production build
-eas build --platform ios --auto-submit
-eas build --platform android --auto-submit
-```
+| Tab              | Screens                                                  | Purpose           |
+| ---------------- | -------------------------------------------------------- | ----------------- |
+| Discover         | Competition list, detail, organizer profile, recommended | Find competitions |
+| My Registrations | Dashboard, detail, receipt                               | Track status      |
+| Profile          | Overview, edit, vault, docs, settings                    | Manage account    |
 
-_Note: Requires EAS account setup. See [Expo EAS docs](https://docs.expo.dev/build/introduction/)_
+### **Organizer Web Portal**
 
-### Submit to App Stores
+| Section       | Screens                            | Purpose             |
+| ------------- | ---------------------------------- | ------------------- |
+| Competitions  | List, create, edit, preview        | Manage listings     |
+| Registrations | List, detail, bulk approve, export | Review participants |
+| Revenue       | Dashboard, payouts                 | Track earnings      |
+| Account       | Profile, team, settings            | Account management  |
 
-```bash
-# iOS App Store
-eas submit --platform ios
+### **School Admin Dashboard**
 
-# Google Play Store
-eas submit --platform android
-```
+| Section       | Screens                     | Purpose           |
+| ------------- | --------------------------- | ----------------- |
+| Students      | Roster, profile, invite     | Manage students   |
+| Registrations | List, bulk register, detail | Register students |
+| Reports       | Participation, export       | View analytics    |
+| Settings      | School profile, admins      | Config            |
+
+---
+
+## 🚀 Roadmap
+
+### **v1 (Current)** ✅
+
+- Registration & discovery
+- Payment integration
+- Organizer portal
+- School dashboard
+- Notifications
+
+### **v2** 🎯
+
+- Representative portal (regional partners)
+- Advanced matching algorithm
+- Sponsored placements
+- Email digest
+- In-app messaging
+
+---
+
+## � Design Tokens
+
+**Colors:**
+
+- Primary: #6366F1 (Indigo)
+- Success: #10B981 (Green)
+- Warning: #F59E0B (Orange)
+- Error: #EF4444 (Red)
+- Background: #F8FAFC
+
+**Typography:**
+
+- Heading: 24-28px, bold
+- Body: 14-16px, regular
+- Small: 12-13px, regular
+
+**Spacing:**
+
+- 4px, 8px, 12px, 16px, 20px, 24px, 32px
+
+---
+
+## 📚 API Endpoints (Supabase)
+
+All via Supabase REST API:
+
+| Resource      | Methods                | Auth           |
+| ------------- | ---------------------- | -------------- |
+| users         | GET, POST, PUT         | User owns data |
+| competitions  | GET                    | Public read    |
+| registrations | GET, POST, PUT, DELETE | User owns data |
+| documents     | GET, POST, DELETE      | User owns data |
+| payments      | GET, POST              | User owns data |
+
+---
+
+## � Links & Resources
+
+- **Supabase Docs:** https://supabase.com/docs
+- **Expo Router:** https://expo.github.io/router
+- **React Native:** https://reactnative.dev
+- **Midtrans:** https://midtrans.com
+
+---
+
+## � Support & Questions
+
+For issues or questions:
+
+1. Check the Database Schema section
+2. Review the Registration Flow documentation
+3. Refer to the Feature descriptions above
+4. Contact the product team
+
+---
+
+**Status:** v1.0 Draft | **Last Updated:** April 6, 2026 | **Market:** Indonesia
 
 ---
 
