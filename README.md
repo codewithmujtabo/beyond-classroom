@@ -244,17 +244,42 @@ Track & optimize:
 - Node.js 16+
 - npm or yarn
 - Expo CLI
+- PostgreSQL (local or remote)
 
 ### **Recommended**
 
 - TypeScript knowledge
 - React Native basics
-- Supabase account
 
-### **Install & Run**
+### **Backend Setup**
 
 ```bash
+# 1. Set up PostgreSQL database
+createdb beyond_classroom
+
+# 2. Run schema
+cd backend
+cp .env.example .env    # Edit with your DB credentials and JWT secret
+psql $DATABASE_URL < src/db/schema.sql
+psql $DATABASE_URL < src/db/seed.sql   # Optional: sample competitions
+
+# 3. Install and start
 npm install
+npm run dev              # Runs on http://localhost:3000
+```
+
+### **Mobile App Setup**
+
+```bash
+# 1. Install dependencies
+cd ..   # back to project root
+npm install
+
+# 2. Configure API URL
+# Edit .env.local:
+# EXPO_PUBLIC_API_URL=http://YOUR_LOCAL_IP:3000/api
+
+# 3. Start Expo
 npm start
 # Scan QR code with Expo Go (iOS/Android)
 # Or press 'w' for web browser
@@ -262,27 +287,26 @@ npm start
 
 ---
 
-## 📝 Database Setup
+## 📝 Database Schema
 
-Run SQL from `DATABASE_SETUP.sql` in Supabase:
-
-```bash
-# 1. Go to Supabase Dashboard
-# 2. SQL Editor → Paste entire DATABASE_SETUP.sql
-# 3. Execute
-# 4. Tables created: users, competitions, registrations, documents, payments
-```
+The database schema is in `backend/src/db/schema.sql`. Tables:
+- `users` — Base profile for all roles (with password_hash for auth)
+- `otp_codes` — Email OTP verification codes
+- `students`, `parents`, `teachers` — Role-specific data
+- `competitions` — Competition listings
+- `registrations` — User registrations for competitions
+- `documents` — Document vault
+- `payments` — Payment tracking
 
 ---
 
-## � Authentication Setup
+## 🔐 Authentication
 
-In Supabase Dashboard:
-
-1. **Authentication** → **Providers**
-2. Enable **Phone** provider (for OTP)
-3. Or enable **Email** provider (for development testing)
-4. Disable email confirmation (auto-confirm users)
+Authentication uses JWT tokens with bcrypt password hashing:
+- **Password login** — Email + password
+- **OTP login** — Email OTP sent via SMTP (nodemailer)
+- Tokens stored in AsyncStorage on mobile
+- All protected endpoints require `Authorization: Bearer <token>` header
 
 ---
 
@@ -358,25 +382,37 @@ In Supabase Dashboard:
 
 ---
 
-## 📚 API Endpoints (Supabase)
+## 📚 API Endpoints (Express.js Backend)
 
-All via Supabase REST API:
+Base URL: `http://localhost:3000/api`
 
-| Resource      | Methods                | Auth           |
-| ------------- | ---------------------- | -------------- |
-| users         | GET, POST, PUT         | User owns data |
-| competitions  | GET                    | Public read    |
-| registrations | GET, POST, PUT, DELETE | User owns data |
-| documents     | GET, POST, DELETE      | User owns data |
-| payments      | GET, POST              | User owns data |
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| POST | `/auth/signup` | No | Create account |
+| POST | `/auth/login` | No | Password login |
+| POST | `/auth/send-otp` | No | Send email OTP |
+| POST | `/auth/verify-otp` | No | Verify OTP login |
+| GET | `/auth/me` | Yes | Current user profile |
+| GET | `/users/me` | Yes | Full profile + role data |
+| PUT | `/users/me` | Yes | Update profile |
+| GET | `/registrations` | Yes | List registrations |
+| POST | `/registrations` | Yes | Create registration |
+| PUT | `/registrations/:id` | Yes | Update status |
+| DELETE | `/registrations/:id` | Yes | Delete registration |
+| GET | `/documents` | Yes | List documents |
+| POST | `/documents` | Yes | Create document |
+| DELETE | `/documents/:id` | Yes | Delete document |
+| GET | `/competitions` | No | List competitions |
+| GET | `/competitions/:id` | No | Competition detail |
 
 ---
 
 ## � Links & Resources
 
-- **Supabase Docs:** https://supabase.com/docs
 - **Expo Router:** https://expo.github.io/router
 - **React Native:** https://reactnative.dev
+- **Express.js:** https://expressjs.com
+- **node-postgres:** https://node-postgres.com
 - **Midtrans:** https://midtrans.com
 
 ---

@@ -1,5 +1,5 @@
 import { AppInput } from "@/components/common/AppInput";
-import { supabase } from "@/config/supabase";
+import * as authService from "@/services/auth.service";
 import { Brand } from "@/constants/theme";
 import { useUser } from "@/context/UserContext";
 import { router } from "expo-router";
@@ -95,30 +95,16 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const { error } =
-        await supabase.auth.signInWithOtp(
-          {
-            email: email.trim(),
-          },
-        );
-
-      if (error) {
-        Alert.alert(
-          "Error",
-          error.message,
-        );
-        return;
-      }
-
+      await authService.sendOtp(email.trim());
       setOtpSent(true);
       Alert.alert(
         "Success",
         "OTP sent to your email. Check your inbox.",
       );
-    } catch (err) {
+    } catch (err: any) {
       Alert.alert(
         "Error",
-        "Failed to send OTP. Try again.",
+        err?.message || "Failed to send OTP. Try again.",
       );
       console.error(err);
     } finally {
@@ -131,41 +117,19 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const { error } =
-        await supabase.auth.verifyOtp({
-          email: email.trim(),
-          token: otp,
-          type: "email",
-        });
+      const { user } =
+        await authService.verifyOtp(email.trim(), otp);
 
-      if (error) {
-        Alert.alert(
-          "Error",
-          error.message,
-        );
-        return;
-      }
+      Alert.alert("Success", "Logged in!");
 
-      Alert.alert(
-        "Success",
-        "Logged in!",
-      );
-      // Wait for auth session to fully establish
-      await new Promise((resolve) =>
-        setTimeout(resolve, 500),
-      );
-      // Fetch user from database
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       if (user) {
         await fetchUser(user.id);
         router.replace("/(tabs)");
       }
-    } catch (err) {
+    } catch (err: any) {
       Alert.alert(
         "Error",
-        "Invalid OTP. Try again.",
+        err?.message || "Invalid OTP. Try again.",
       );
       console.error(err);
     } finally {
@@ -178,56 +142,31 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      // Sign in with email and password
-      const { data, error } =
-        await supabase.auth.signInWithPassword(
-          {
-            email: email.trim(),
-            password: password.trim(),
-          },
+      const { user } =
+        await authService.login(
+          email.trim(),
+          password.trim(),
         );
 
-      if (error) {
-        if (
-          error.message
-            .toLowerCase()
-            .includes("invalid")
-        ) {
-          Alert.alert(
-            "Error",
-            "There is no user with this email or password is incorrect",
-          );
-        } else {
-          Alert.alert(
-            "Error",
-            error.message,
-          );
-        }
-        return;
-      }
-
-      if (data.user) {
-        Alert.alert(
-          "Success",
-          "Logged in!",
-        );
-        // Wait for auth session to fully establish
-        await new Promise((resolve) =>
-          setTimeout(resolve, 500),
-        );
-        // Fetch user from database
-        await fetchUser(data.user.id);
+      if (user) {
+        Alert.alert("Success", "Logged in!");
+        await fetchUser(user.id);
         router.replace("/(tabs)");
       }
-    } catch (err) {
-      console.error(
-        "Login error:",
-        err,
-      );
-      Alert.alert(
-        "Error",
-        "Login failed",
-      );
+    } catch (err: any) {
+      const msg = err?.message?.toLowerCase() || "";
+      if (msg.includes("invalid")) {
+        Alert.alert(
+          "Error",
+          "There is no user with this email or password is incorrect",
+        );
+      } else {
+        Alert.alert(
+          "Error",
+          err?.message || "Login failed",
+        );
+      }
+      console.error("Login error:", err);
     } finally {
       setLoading(false);
     }

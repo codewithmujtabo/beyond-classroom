@@ -1,5 +1,5 @@
 import { AppInput } from "@/components/common/AppInput";
-import { supabase } from "@/config/supabase";
+import * as userService from "@/services/user.service";
 import { Brand } from "@/constants/theme";
 import React, {
     useEffect,
@@ -51,23 +51,21 @@ export default function ProfileCompletionScreen() {
 
   const fetchProfile = async () => {
     try {
-      const { data: session } =
-        await supabase.auth.getSession();
-      if (!session.session?.user.id)
-        return;
+      const data = await userService.getProfile();
 
-      const { data, error } =
-        await supabase
-          .from("users")
-          .select("*")
-          .eq(
-            "id",
-            session.session.user.id,
-          )
-          .single();
+      if (!data) return;
 
-      if (error) throw error;
-      setProfile(data);
+      setProfile({
+        id: data.id,
+        full_name: data.fullName || "",
+        phone: data.phone || "",
+        school: data.school || "",
+        grade: data.grade,
+        nisn: data.nisn,
+        photo_url: data.photoUrl,
+        city: data.city || "",
+        role: data.role || "student",
+      });
       setNisn(data.nisn || "");
       setCity(data.city || "");
     } catch (err) {
@@ -104,17 +102,10 @@ export default function ProfileCompletionScreen() {
 
       setSaving(true);
       try {
-        const { error } = await supabase
-          .from("users")
-          .update({
-            nisn: nisn || null,
-            city: city.trim(),
-            updated_at:
-              new Date().toISOString(),
-          })
-          .eq("id", profile.id);
-
-        if (error) throw error;
+        await userService.updateProfile({
+          nisn: nisn || null,
+          city: city.trim(),
+        });
 
         Alert.alert(
           "Success",

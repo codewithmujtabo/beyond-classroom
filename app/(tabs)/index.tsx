@@ -1,4 +1,4 @@
-import { supabase } from "@/config/supabase";
+import * as authService from "@/services/auth.service";
 import {
     BANNERS,
     CATEGORIES,
@@ -282,20 +282,15 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  // Load user from Supabase if not already loaded
+  // Load user from backend if not already loaded
   useEffect(() => {
     const loadUser = async () => {
-      // If user is already loaded, skip
       if (user) return;
 
       try {
-        const {
-          data: { user: authUser },
-        } =
-          await supabase.auth.getUser();
-
-        if (authUser?.id) {
-          await fetchUser(authUser.id);
+        const userData = await authService.getMe();
+        if (userData?.id) {
+          await fetchUser(userData.id);
         }
       } catch (err) {
         console.error(

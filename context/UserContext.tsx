@@ -1,9 +1,9 @@
 /**
  * UserContext — provides the current logged-in user to the whole app.
- * Fetches real user data from Supabase after login.
+ * Fetches real user data from custom Express backend after login.
  */
 
-import { supabase } from "@/config/supabase";
+import * as userService from "@/services/user.service";
 import { AppUser } from "@/constants/mock-user";
 import React, {
     createContext,
@@ -63,7 +63,6 @@ export function UserProvider({
 }: {
   children: React.ReactNode;
 }) {
-  // Start with null — fetch real user from Supabase after login
   const [user, setUser] =
     useState<AppUser | null>(null);
   const [
@@ -75,31 +74,16 @@ export function UserProvider({
     setLastRegisteredId,
   ] = useState<string | null>(null);
 
-  // Fetch user from Supabase by ID
   const fetchUser = async (
-    userId: string,
+    _userId: string,
   ) => {
     try {
-      const { data, error } =
-        await supabase
-          .from("users")
-          .select("*")
-          .eq("id", userId)
-          .single();
-
-      if (error) {
-        console.error(
-          "Error fetching user:",
-          error,
-        );
-        return;
-      }
+      const data = await userService.getProfile();
 
       if (data) {
-        // Transform database user to AppUser format
         const appUser: AppUser = {
           id: data.id,
-          name: data.full_name || "",
+          name: data.fullName || "",
           email: data.email || "",
           phone: data.phone || "",
           school: data.school || "",
@@ -188,7 +172,6 @@ export function UserProvider({
   );
 }
 
-/** Use this hook in any screen to get the current user */
 export function useUser() {
   return useContext(UserContext);
 }
