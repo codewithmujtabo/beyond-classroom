@@ -1,5 +1,5 @@
 import { AppInput } from "@/components/common/AppInput";
-import { supabase } from "@/config/supabase";
+import * as authService from "@/services/auth.service";
 import { Brand } from "@/constants/theme";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -151,30 +151,17 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      const { error } =
-        await supabase.auth.signInWithOtp(
-          {
-            email: email.trim(),
-          },
-        );
-
-      if (error) {
-        Alert.alert(
-          "Error",
-          error.message,
-        );
-        return;
-      }
+      await authService.sendOtp(email.trim());
 
       setStep("otp");
       Alert.alert(
         "Success",
         "OTP sent to your email. Check your inbox.",
       );
-    } catch (err) {
+    } catch (err: any) {
       Alert.alert(
         "Error",
-        "Failed to send OTP. Try again.",
+        err?.message || "Failed to send OTP. Try again.",
       );
       console.error(err);
     } finally {
@@ -191,26 +178,12 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      const { error } =
-        await supabase.auth.verifyOtp({
-          email: email.trim(),
-          token: otp,
-          type: "email",
-        });
-
-      if (error) {
-        Alert.alert(
-          "Error",
-          error.message,
-        );
-        return;
-      }
-
+      await authService.verifyOtp(email.trim(), otp);
       setStep("details");
-    } catch (err) {
+    } catch (err: any) {
       Alert.alert(
         "Error",
-        "Invalid OTP. Try again.",
+        err?.message || "Invalid OTP. Try again.",
       );
       console.error(err);
     } finally {
@@ -228,93 +201,26 @@ export default function RegisterScreen() {
 
       setLoading(true);
       try {
-        const {
-          data: { user },
-        } =
-          await supabase.auth.getUser();
+        // The user was already authenticated via OTP verification.
+        // Now update their profile via the backend.
+        const { updateProfile } = await import("@/services/user.service");
+        await updateProfile({
+          fullName: name.trim(),
+          city: city.trim(),
+          school: school.trim(),
+          grade: role === "student" ? grade : undefined,
+        });
 
-        if (!user?.id) {
-          Alert.alert(
-            "Error",
-            "Authentication failed. Please try again.",
-          );
-          return;
-        }
-
-        console.log(
-          "Registering user with ID:",
-          user.id,
+        Alert.alert(
+          "Success",
+          "Account created! Welcome to Beyond Classroom",
         );
-        console.log(
-          "User email:",
-          user.email,
-        );
-
-        try {
-          // Try to update user profile in database
-          const updateData = {
-            id: user.id,
-            full_name: name.trim(),
-            email: email.trim(),
-            school: school.trim(),
-            grade:
-              role === "student"
-                ? grade
-                : null,
-            city: city.trim(),
-            role: role,
-          };
-
-          console.log(
-            "Update data:",
-            JSON.stringify(updateData),
-          );
-
-          const { data, error } =
-            await supabase
-              .from("users")
-              .upsert(updateData, {
-                onConflict: "id",
-              })
-              .select();
-
-          console.log(
-            "Upsert response:",
-            data,
-            error,
-          );
-
-          if (error) {
-            console.error(
-              "Full error object:",
-              JSON.stringify(error),
-            );
-            throw error;
-          }
-
-          Alert.alert(
-            "Success",
-            "Account created! Welcome to Beyond Classroom",
-          );
-          router.replace("/(tabs)");
-        } catch (dbError: any) {
-          console.error(
-            "Database catch error:",
-            dbError,
-          );
-          Alert.alert(
-            "Error",
-            `Database error: ${dbError?.message || JSON.stringify(dbError)}`,
-          );
-        }
-      } catch (err) {
-        console.error(
-          "Outer catch error:",
-          err,
-        );
+        router.replace("/(tabs)");
+      } catch (err: any) {
+        console.error("Registration error:", err);
         Alert.alert(
           "Error",
-          "Failed to save profile. Try again.",
+          err?.message || "Failed to save profile. Try again.",
         );
       } finally {
         setLoading(false);

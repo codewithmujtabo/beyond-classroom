@@ -1,4 +1,5 @@
-import { supabase } from "@/config/supabase";
+import * as authService from "@/services/auth.service";
+import * as documentService from "@/services/document.service";
 import { Brand } from "@/constants/theme";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
@@ -72,15 +73,10 @@ export default function DocumentVaultScreen() {
 
   const initializeUser = async () => {
     try {
-      const { data: session } =
-        await supabase.auth.getSession();
-      if (session.session?.user.id) {
-        setUserId(
-          session.session.user.id,
-        );
-        await fetchDocuments(
-          session.session.user.id,
-        );
+      const userData = await authService.getMe();
+      if (userData?.id) {
+        setUserId(userData.id);
+        await fetchDocuments();
       }
     } catch (err) {
       console.error(
@@ -96,21 +92,18 @@ export default function DocumentVaultScreen() {
     }
   };
 
-  const fetchDocuments = async (
-    uid: string,
-  ) => {
+  const fetchDocuments = async () => {
     try {
-      const { data, error } =
-        await supabase
-          .from("documents")
-          .select("*")
-          .eq("user_id", uid)
-          .order("uploaded_at", {
-            ascending: false,
-          });
-
-      if (error) throw error;
-      setDocuments(data || []);
+      const data = await documentService.list();
+      setDocuments(
+        data.map((d) => ({
+          id: d.id,
+          doc_type: d.docType,
+          file_name: d.fileName,
+          file_size: d.fileSize,
+          uploaded_at: d.uploadedAt,
+        })),
+      );
     } catch (err) {
       console.error(
         "Error fetching documents:",
@@ -216,39 +209,27 @@ export default function DocumentVaultScreen() {
 
     setUploading(true);
     try {
-      // In a real app, you'd upload to Supabase Storage
-      // For now, we'll just save metadata to the database
-
       const fileName =
         fileAsset.name ||
         `${docType}_${Date.now()}`;
       const fileSize =
         fileAsset.size || 0;
 
-      // Simulating file upload to storage
-      // In production: upload to supabase.storage.from('documents').upload()
+      // In production, upload to your own file storage (S3, etc.)
       const fileUrl = `https://storage.example.com/${userId}/${fileName}`;
 
-      const { data, error } =
-        await supabase
-          .from("documents")
-          .insert({
-            user_id: userId,
-            doc_type: docType,
-            file_name: fileName,
-            file_size: fileSize,
-            file_url: fileUrl,
-            uploaded_at:
-              new Date().toISOString(),
-          });
-
-      if (error) throw error;
+      await documentService.create({
+        docType,
+        fileName,
+        fileSize,
+        fileUrl,
+      });
 
       Alert.alert(
         "Success",
         "Document uploaded!",
       );
-      await fetchDocuments(userId);
+      await fetchDocuments();
     } catch (err) {
       Alert.alert(
         "Error",
@@ -275,22 +256,13 @@ export default function DocumentVaultScreen() {
           text: "Delete",
           onPress: async () => {
             try {
-              const { error } =
-                await supabase
-                  .from("documents")
-                  .delete()
-                  .eq("id", docId);
-
-              if (error) throw error;
+              await documentService.remove(docId);
 
               Alert.alert(
                 "Success",
                 "Document deleted",
               );
-              if (userId)
-                await fetchDocuments(
-                  userId,
-                );
+              await fetchDocuments();
             } catch (err) {
               Alert.alert(
                 "Error",

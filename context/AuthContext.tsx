@@ -1,10 +1,9 @@
 /**
- * AuthContext — handles user authentication with Supabase
+ * AuthContext — handles user authentication via custom Express backend
  * Manages login, signup, and logout
- * Prevents users from accessing app if they don't have an account
  */
 
-import { supabase } from "@/config/supabase";
+import * as authService from "@/services/auth.service";
 import React, {
     createContext,
     useContext,
@@ -68,7 +67,6 @@ export function AuthProvider({
     setIsAuthenticated,
   ] = useState(false);
 
-  // Check if user is already logged in
   useEffect(() => {
     checkAuth();
   }, []);
@@ -78,69 +76,27 @@ export function AuthProvider({
       setIsLoading(true);
       setError(null);
 
-      // Get current auth session
-      const {
-        data: { session },
-        error: sessionError,
-      } =
-        await supabase.auth.getSession();
+      const userData = await authService.getMe();
 
-      if (sessionError) {
-        throw sessionError;
-      }
-
-      if (!session) {
+      if (!userData) {
         setIsAuthenticated(false);
         setUser(null);
         return;
       }
 
-      // Get user profile from database
-      const {
-        data: profileData,
-        error: profileError,
-      } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", session.user.id)
-        .single();
-
-      if (
-        profileError &&
-        profileError.code !== "PGRST116"
-      ) {
-        // PGRST116 = no rows returned (user not found)
-        console.warn(
-          "Profile error:",
-          profileError,
-        );
-      }
-
-      if (profileData) {
-        setUser({
-          id: profileData.id,
-          email: profileData.email,
-          fullName:
-            profileData.full_name,
-          school: profileData.school,
-          phone: profileData.phone,
-          grade: profileData.grade,
-        });
-        setIsAuthenticated(true);
-      } else {
-        // User logged in but no profile = not allowed
-        await supabase.auth.signOut();
-        setIsAuthenticated(false);
-        setUser(null);
-      }
+      setUser({
+        id: userData.id,
+        email: userData.email,
+        fullName: userData.fullName,
+        school: userData.school,
+        phone: userData.phone,
+        grade: userData.grade,
+      });
+      setIsAuthenticated(true);
     } catch (err: any) {
-      console.error(
-        "Auth check error:",
-        err,
-      );
+      console.error("Auth check error:", err);
       setError(
-        err?.message ||
-          "Authentication check failed",
+        err?.message || "Authentication check failed",
       );
       setIsAuthenticated(false);
       setUser(null);
@@ -158,60 +114,25 @@ export function AuthProvider({
       setError(null);
       setIsLoading(true);
 
-      // Sign up user with Supabase Auth
-      const {
-        data,
-        error: signupError,
-      } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-        },
-      });
+      const { user: userData } =
+        await authService.signup({
+          email,
+          password,
+          fullName,
+          phone: "",
+          city: "",
+          role: "student",
+          roleData: {},
+        });
 
-      if (signupError) {
-        throw signupError;
-      }
-
-      if (!data.user) {
-        throw new Error(
-          "Signup failed - no user returned",
-        );
-      }
-
-      // User profile is auto-created by trigger
-      // But we'll verify it exists
-      const {
-        data: profileData,
-        error: profileError,
-      } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", data.user.id)
-        .single();
-
-      if (
-        profileError &&
-        profileError.code !== "PGRST116"
-      ) {
-        console.warn(
-          "Profile check error:",
-          profileError,
-        );
-      }
-
-      if (profileData) {
+      if (userData) {
         setUser({
-          id: profileData.id,
-          email: profileData.email,
-          fullName:
-            profileData.full_name,
-          school: profileData.school,
-          phone: profileData.phone,
-          grade: profileData.grade,
+          id: userData.id,
+          email: userData.email,
+          fullName: userData.fullName,
+          school: userData.school,
+          phone: userData.phone,
+          grade: userData.grade,
         });
         setIsAuthenticated(true);
       }
@@ -233,62 +154,20 @@ export function AuthProvider({
       setError(null);
       setIsLoading(true);
 
-      // Sign in user
-      const {
-        data,
-        error: signInError,
-      } =
-        await supabase.auth.signInWithPassword(
-          {
-            email,
-            password,
-          },
-        );
+      const { user: userData } =
+        await authService.login(email, password);
 
-      if (signInError) {
-        throw signInError;
-      }
-
-      if (!data.user) {
-        throw new Error(
-          "Login failed - no user returned",
-        );
-      }
-
-      // Get user profile
-      const {
-        data: profileData,
-        error: profileError,
-      } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", data.user.id)
-        .single();
-
-      if (
-        profileError &&
-        profileError.code !== "PGRST116"
-      ) {
-        throw new Error(
-          "User profile not found - please contact support",
-        );
-      }
-
-      if (!profileData) {
-        // User is authenticated but has no profile
-        await supabase.auth.signOut();
-        throw new Error(
-          "User account not properly set up - please signup again",
-        );
+      if (!userData) {
+        throw new Error("Login failed - no user returned");
       }
 
       setUser({
-        id: profileData.id,
-        email: profileData.email,
-        fullName: profileData.full_name,
-        school: profileData.school,
-        phone: profileData.phone,
-        grade: profileData.grade,
+        id: userData.id,
+        email: userData.email,
+        fullName: userData.fullName,
+        school: userData.school,
+        phone: userData.phone,
+        grade: userData.grade,
       });
       setIsAuthenticated(true);
     } catch (err: any) {
@@ -306,12 +185,7 @@ export function AuthProvider({
       setError(null);
       setIsLoading(true);
 
-      const { error: signOutError } =
-        await supabase.auth.signOut();
-
-      if (signOutError) {
-        throw signOutError;
-      }
+      await authService.logout();
 
       setUser(null);
       setIsAuthenticated(false);
@@ -347,11 +221,8 @@ export function AuthProvider({
   );
 }
 
-/** Use this hook to access authentication */
 export function useAuth() {
-  const context = useContext(
-    AuthContext,
-  );
+  const context = useContext(AuthContext);
   if (!context) {
     throw new Error(
       "useAuth must be used within AuthProvider",

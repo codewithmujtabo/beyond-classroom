@@ -1,5 +1,5 @@
 import { AppInput } from "@/components/common/AppInput";
-import { supabase } from "@/config/supabase";
+import * as authService from "@/services/auth.service";
 import { Brand } from "@/constants/theme";
 import { useUser } from "@/context/UserContext";
 import { useRouter } from "expo-router";
@@ -176,240 +176,70 @@ export default function RegisterScreen() {
 
       setLoading(true);
       try {
-        // 1. Create Supabase Auth Account
-        const {
-          data: signUpData,
-          error: signUpError,
-        } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: password.trim(),
-        });
-
-        if (signUpError) {
-          if (
-            signUpError.message
-              .toLowerCase()
-              .includes(
-                "already registered",
-              )
-          ) {
-            Alert.alert(
-              "Account Exists",
-              "This email is already registered. Please login instead.",
-            );
-          } else if (
-            signUpError.message
-              .toLowerCase()
-              .includes("rate limit")
-          ) {
-            Alert.alert(
-              "Rate Limit",
-              "Too many signups. Wait 2 minutes and try again.",
-            );
-          } else {
-            Alert.alert(
-              "Error",
-              signUpError.message,
-            );
-          }
-          return;
-        }
-
-        if (!signUpData.user?.id) {
-          Alert.alert(
-            "Error",
-            "Failed to create account",
-          );
-          return;
-        }
-
-        const userId =
-          signUpData.user.id;
-
-        // 2. Wait for auth to be ready
-        await new Promise((resolve) =>
-          setTimeout(resolve, 500),
-        );
-
-        // 3. Check if user already exists in database
-        const { data: existingUser } =
-          await supabase
-            .from("users")
-            .select("id")
-            .eq("id", userId)
-            .single();
-
-        // 3a. If user doesn't exist, insert into users table
-        if (!existingUser) {
-          const { error: userError } =
-            await supabase
-              .from("users")
-              .insert([
-                {
-                  id: userId,
-                  email: email.trim(),
-                  full_name:
-                    name.trim(),
-                  phone: phone.trim(),
-                  city: city.trim(),
-                  role: role,
-                },
-              ]);
-
-          if (userError) {
-            console.error(
-              "User insert error:",
-              userError,
-            );
-            Alert.alert(
-              "Error",
-              `Failed to save profile: ${userError.message}`,
-            );
-            return;
-          }
-        }
-
-        // 4. Insert into role-specific tables
+        // Build role-specific data
+        let roleData: any = {};
         if (role === "student") {
-          // Check if student record already exists
-          const {
-            data: existingStudent,
-          } = await supabase
-            .from("students")
-            .select("id")
-            .eq("id", userId)
-            .single();
-
-          if (!existingStudent) {
-            const {
-              error: studentError,
-            } = await supabase
-              .from("students")
-              .insert([
-                {
-                  id: userId,
-                  school: school.trim(),
-                  grade: grade,
-                },
-              ]);
-
-            if (studentError) {
-              console.error(
-                "Student insert error:",
-                studentError,
-              );
-              Alert.alert(
-                "Error",
-                `Failed to save student data: ${studentError.message}`,
-              );
-              return;
-            }
-          }
+          roleData = {
+            school: school.trim(),
+            grade,
+          };
         } else if (role === "parent") {
-          // Check if parent record already exists
-          const {
-            data: existingParent,
-          } = await supabase
-            .from("parents")
-            .select("id")
-            .eq("id", userId)
-            .single();
-
-          if (!existingParent) {
-            const {
-              error: parentError,
-            } = await supabase
-              .from("parents")
-              .insert([
-                {
-                  id: userId,
-                  child_name:
-                    childName.trim(),
-                  child_school:
-                    childSchool.trim(),
-                  child_grade:
-                    childGrade,
-                },
-              ]);
-
-            if (parentError) {
-              console.error(
-                "Parent insert error:",
-                parentError,
-              );
-              Alert.alert(
-                "Error",
-                `Failed to save parent data: ${parentError.message}`,
-              );
-              return;
-            }
-          }
+          roleData = {
+            childName: childName.trim(),
+            childSchool: childSchool.trim(),
+            childGrade,
+          };
         } else if (role === "teacher") {
-          // Check if teacher record already exists
-          const {
-            data: existingTeacher,
-          } = await supabase
-            .from("teachers")
-            .select("id")
-            .eq("id", userId)
-            .single();
-
-          if (!existingTeacher) {
-            const {
-              error: teacherError,
-            } = await supabase
-              .from("teachers")
-              .insert([
-                {
-                  id: userId,
-                  school:
-                    teacherSchool.trim(),
-                  subject:
-                    subject.trim(),
-                },
-              ]);
-
-            if (teacherError) {
-              console.error(
-                "Teacher insert error:",
-                teacherError,
-              );
-              Alert.alert(
-                "Error",
-                `Failed to save teacher data: ${teacherError.message}`,
-              );
-              return;
-            }
-          }
+          roleData = {
+            school: teacherSchool.trim(),
+            subject: subject.trim(),
+          };
         }
+
+        // Single API call handles everything
+        const { user } =
+          await authService.signup({
+            email: email.trim(),
+            password: password.trim(),
+            fullName: name.trim(),
+            phone: phone.trim(),
+            city: city.trim(),
+            role,
+            roleData,
+          });
 
         Alert.alert(
           "Success",
           "Account created! Welcome to Beyond Classroom",
         );
 
-        // Wait for auth session to fully establish before fetching user data
-        await new Promise((resolve) =>
-          setTimeout(resolve, 1000),
-        );
-
-        // Fetch user data into context
-        if (signUpData.user?.id) {
-          await fetchUser(
-            signUpData.user.id,
-          );
+        if (user?.id) {
+          await fetchUser(user.id);
         }
 
         router.replace("/(tabs)");
-      } catch (err) {
+      } catch (err: any) {
         console.error(
           "Registration error:",
           err,
         );
-        Alert.alert(
-          "Error",
-          "Registration failed",
-        );
+        const msg = err?.message?.toLowerCase() || "";
+        if (msg.includes("already registered") || msg.includes("already")) {
+          Alert.alert(
+            "Account Exists",
+            "This email is already registered. Please login instead.",
+          );
+        } else if (msg.includes("rate limit")) {
+          Alert.alert(
+            "Rate Limit",
+            "Too many signups. Wait 2 minutes and try again.",
+          );
+        } else {
+          Alert.alert(
+            "Error",
+            err?.message || "Registration failed",
+          );
+        }
       } finally {
         setLoading(false);
       }

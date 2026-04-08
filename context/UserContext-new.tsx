@@ -1,10 +1,11 @@
 /**
  * UserContext — provides the current logged-in user to the whole app.
- * Integrates with Supabase for authentication and data storage.
+ * Integrates with custom Express backend for authentication and data storage.
  * Falls back to MOCK_USER during development.
  */
 
-import { supabase } from "@/config/supabase";
+import * as authService from "@/services/auth.service";
+import * as registrationService from "@/services/registration.service";
 import {
     AppUser,
     MOCK_USER,
@@ -69,7 +70,6 @@ export function UserProvider({
 }: {
   children: React.ReactNode;
 }) {
-  // Starts with MOCK_USER during dev — swap for real auth later
   const [user, setUser] =
     useState<AppUser | null>(MOCK_USER);
   const [
@@ -86,54 +86,25 @@ export function UserProvider({
     string | null
   >(null);
 
-  // Load current authenticated user from Supabase
   useEffect(() => {
     loadAuthenticatedUser();
   }, []);
 
   async function loadAuthenticatedUser() {
     try {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
+      const userData = await authService.getMe();
 
-      if (authUser?.id) {
-        // Fetch user profile from database
-        const {
-          data: userData,
-          error: userError,
-        } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", authUser.id)
-          .single();
-
-        if (userError) {
-          console.warn(
-            "Failed to load user profile:",
-            userError,
-          );
-          return;
-        }
-
-        if (userData) {
-          setUser({
-            id: userData.id,
-            name:
-              userData.full_name ||
-              "User",
-            email: userData.email || "",
-            phone: userData.phone || "",
-            school:
-              userData.school || "",
-            city: userData.city || "",
-            role:
-              userData.role ||
-              "student",
-            level:
-              userData.grade || "SMP",
-          } as AppUser);
-        }
+      if (userData) {
+        setUser({
+          id: userData.id,
+          name: userData.fullName || "User",
+          email: userData.email || "",
+          phone: userData.phone || "",
+          school: userData.school || "",
+          city: userData.city || "",
+          role: userData.role || "student",
+          level: userData.grade || "SMP",
+        } as AppUser);
       }
     } catch (err) {
       console.error(
@@ -143,7 +114,6 @@ export function UserProvider({
     }
   }
 
-  // Load registrations on app start
   useEffect(() => {
     loadRegistrations();
   }, [user?.id]);
@@ -158,42 +128,21 @@ export function UserProvider({
       setIsLoading(true);
       setError(null);
 
-      // Try to fetch from Supabase
-      const {
-        data,
-        error: supabaseError,
-      } = await supabase
-        .from("registrations")
-        .select("*")
-        .eq("user_id", user.id);
+      const data = await registrationService.list();
 
-      if (supabaseError) {
-        console.warn(
-          "Failed to load from Supabase, using local state",
-          supabaseError,
-        );
-        // Fall back to local state - data will be in memory
-        return;
-      }
-
-      if (data) {
-        setRegistrations(
-          data.map((reg: any) => ({
-            id: reg.id,
-            compId: reg.comp_id,
-            status: reg.status,
-            createdAt: reg.created_at,
-            meta: reg.meta,
-          })),
-        );
-      }
-    } catch (err) {
-      console.error(
-        "Error loading registrations:",
-        err,
+      setRegistrations(
+        data.map((reg) => ({
+          id: reg.id,
+          compId: reg.compId,
+          status: reg.status as RegistrationStatus,
+          createdAt: reg.createdAt,
+          meta: reg.meta,
+        })),
       );
-      setError(
-        "Failed to load registrations",
+    } catch (err) {
+      console.warn(
+        "Failed to load registrations, using local state",
+        err,
       );
     } finally {
       setIsLoading(false);
@@ -216,31 +165,25 @@ export function UserProvider({
         meta,
       };
 
-      // Add to local state immediately for better UX
       setRegistrations((s) => [
         reg,
         ...s,
       ]);
       setLastRegisteredId(id);
 
-      // Try to save to Supabase (fire and forget, don't block UI)
       if (user?.id) {
-        supabase
-          .from("registrations")
-          .insert({
+        registrationService
+          .create({
             id,
-            user_id: user.id,
-            comp_id: compId,
+            compId,
             status: "registered",
-            created_at: reg.createdAt,
             meta,
           })
           .catch((err) => {
             console.warn(
-              "Failed to save registration to Supabase:",
+              "Failed to save registration to backend:",
               err,
             );
-            // Data is still in local state, so user can continue
           });
       }
     } catch (err) {
@@ -261,7 +204,6 @@ export function UserProvider({
     try {
       setError(null);
 
-      // Update local state immediately
       setRegistrations((s) =>
         s.map((r) =>
           r.id === id
@@ -270,15 +212,12 @@ export function UserProvider({
         ),
       );
 
-      // Update in Supabase (fire and forget)
       if (user?.id) {
-        supabase
-          .from("registrations")
-          .update({ status: "paid" })
-          .eq("id", id)
+        registrationService
+          .updateStatus(id, "paid")
           .catch((err) => {
             console.warn(
-              "Failed to update registration in Supabase:",
+              "Failed to update registration in backend:",
               err,
             );
           });
@@ -301,20 +240,16 @@ export function UserProvider({
     try {
       setError(null);
 
-      // Remove from local state immediately
       setRegistrations((s) =>
         s.filter((r) => r.id !== id),
       );
 
-      // Remove from Supabase (fire and forget)
       if (user?.id) {
-        supabase
-          .from("registrations")
-          .delete()
-          .eq("id", id)
+        registrationService
+          .remove(id)
           .catch((err) => {
             console.warn(
-              "Failed to delete registration from Supabase:",
+              "Failed to delete registration from backend:",
               err,
             );
           });
@@ -355,7 +290,6 @@ export function UserProvider({
   );
 }
 
-/** Use this hook in any screen to get the current user and registration functions */
 export function useUser() {
   return useContext(UserContext);
 }
