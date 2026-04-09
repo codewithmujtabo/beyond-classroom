@@ -1,42 +1,46 @@
-import {
-    DarkTheme,
-    DefaultTheme,
-    ThemeProvider,
-} from "@react-navigation/native";
-import {
-    Stack
-} from "expo-router";
+import * as Sentry from "@sentry/react-native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
-import { UserProvider } from "@/context/UserContext";
-import { useColorScheme } from "@/hooks/use-color-scheme";
+import { AuthProvider } from "@/context/AuthContext";
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  tracesSampleRate: __DEV__ ? 1.0 : 0.2,
+  environment: __DEV__ ? "development" : "production",
+  enabled: !!process.env.EXPO_PUBLIC_SENTRY_DSN,
+});
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // 24h stale time — competitions list is readable offline (PRD §6)
+      staleTime: 1000 * 60 * 60 * 24,
+      retry: 2,
+    },
+  },
+});
+
+function RootLayout() {
   return (
-    <UserProvider>
-      <ThemeProvider
-        value={
-          colorScheme === "dark"
-            ? DarkTheme
-            : DefaultTheme
-        }
-      >
-        <Stack
-          screenOptions={{
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(onboarding)/index" />
-          <Stack.Screen name="(auth)/login" />
-          <Stack.Screen name="(auth)/register" />
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </UserProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <ThemeProvider value={DefaultTheme}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(onboarding)/index" />
+            <Stack.Screen name="(auth)/login" />
+            <Stack.Screen name="(auth)/register" />
+            <Stack.Screen name="(tabs)" />
+          </Stack>
+          <StatusBar style="dark" />
+        </ThemeProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);

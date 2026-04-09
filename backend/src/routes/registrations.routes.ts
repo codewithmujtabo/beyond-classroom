@@ -32,20 +32,35 @@ router.get("/", async (req: Request, res: Response) => {
 // ── POST /api/registrations ───────────────────────────────────────────────
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const { id, compId, status, meta } = req.body;
+    const { id, compId, meta } = req.body;
 
     if (!id || !compId) {
       res.status(400).json({ message: "id and compId are required" });
       return;
     }
 
+    // Look up the competition fee to decide initial status
+    const compResult = await pool.query(
+      "SELECT fee FROM competitions WHERE id = $1",
+      [compId]
+    );
+
+    if (compResult.rows.length === 0) {
+      res.status(404).json({ message: "Competition not found" });
+      return;
+    }
+
+    // Free competitions are immediately marked paid — no payment step needed
+    const isFree = compResult.rows[0].fee === 0;
+    const initialStatus = isFree ? "paid" : "registered";
+
     await pool.query(
       `INSERT INTO registrations (id, user_id, comp_id, status, meta)
        VALUES ($1, $2, $3, $4, $5)`,
-      [id, req.userId, compId, status || "registered", meta ? JSON.stringify(meta) : null]
+      [id, req.userId, compId, initialStatus, meta ? JSON.stringify(meta) : null]
     );
 
-    res.status(201).json({ message: "Registration created", id });
+    res.status(201).json({ message: "Registration created", id, status: initialStatus });
   } catch (err: any) {
     if (err.code === "23505") {
       res.status(409).json({ message: "Registration already exists" });

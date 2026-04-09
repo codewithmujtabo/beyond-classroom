@@ -1,588 +1,280 @@
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { COMPETITIONS } from "@/constants/competitions";
 import { Brand } from "@/constants/theme";
-import { useUser } from "@/context/UserContext";
+import { useUser } from "@/context/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import * as competitionsService from "@/services/competitions.service";
+import { Analytics } from "@/services/analytics";
 import {
-    useLocalSearchParams,
-    useRouter,
+  useLocalSearchParams,
+  useRouter,
 } from "expo-router";
-import React, {
-    useEffect,
-    useState,
-} from "react";
+import React, { useEffect, useState } from "react";
 import {
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-function formatPrice(p: number) {
-  return p === 0
-    ? "Free"
-    : `Rp ${p.toLocaleString("id-ID")}`;
+function formatPrice(fee: number) {
+  return fee === 0 ? "Free" : `Rp ${fee.toLocaleString("id-ID")}`;
 }
 
+function formatDate(d: string | null) {
+  if (!d) return "-";
+  return new Date(d).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+const CATEGORY_EMOJIS: Record<string, string> = {
+  Math: "📐",
+  Science: "🔬",
+  Debate: "🎤",
+  Arts: "🎨",
+  Language: "📚",
+  Technology: "🤖",
+  Sports: "⚽",
+};
+
 export default function CompetitionDetailPage() {
-  const { id, from } =
-    useLocalSearchParams();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const {
-    registrations,
-    registerCompetition,
-  } = useUser();
+  const { registrations, registerCompetition } = useUser();
+  const [activeTab, setActiveTab] = useState<"overview" | "registration" | "payment">("overview");
 
-  const comp = COMPETITIONS.find(
-    (c) => c.id === id,
-  );
-  const [activeTab, setActiveTab] =
-    useState<
-      | "overview"
-      | "registration"
-      | "payment"
-    >("overview");
+  const { data: comp, isLoading, isError } = useQuery({
+    queryKey: ["competition", id],
+    queryFn: () => competitionsService.get(id!),
+    enabled: !!id,
+  });
 
-  // Reset tab to overview when competition ID changes
+  useEffect(() => {
+    if (comp) {
+      Analytics.track("competition_viewed", {
+        competitionId: comp.id,
+        name: comp.name,
+        category: comp.category,
+      });
+    }
+  }, [comp?.id]);
+
+  // Reset tab when id changes
   useEffect(() => {
     setActiveTab("overview");
   }, [id]);
 
   const handleBack = () => {
-    // If came from Competitions tab, go back to Competitions
-    if (from === "competitions") {
-      router.push(
-        "/(tabs)/competitions",
-      );
-    } else if (router.canGoBack()) {
-      // Otherwise use standard back navigation
-      router.back();
-    } else {
-      // Fallback to Competitions page
-      router.push(
-        "/(tabs)/competitions",
-      );
-    }
+    if (router.canGoBack()) router.back();
+    else router.push("/(tabs)/competitions");
   };
 
-  if (!comp) {
+  // Check if already registered
+  const already = comp
+    ? registrations.some((r) => r.compId === comp.id)
+    : false;
+
+  // Check if registration is closed
+  const isClosed = comp?.regCloseDate
+    ? new Date(comp.regCloseDate) < new Date()
+    : false;
+
+  if (isLoading) {
     return (
-      <View
-        style={[
-          styles.container,
-          { paddingTop: insets.top },
-        ]}
-      >
+      <View style={[styles.container, styles.center, { paddingTop: insets.top }]}>
+        <ActivityIndicator color={Brand.primary} size="large" />
+      </View>
+    );
+  }
+
+  if (isError || !comp) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Pressable
-            onPress={handleBack}
-            style={styles.backBtn}
-          >
-            <IconSymbol
-              size={24}
-              name="chevron.left"
-              color="#0F172A"
-            />
+          <Pressable onPress={handleBack} style={styles.backBtn}>
+            <IconSymbol size={24} name="chevron.left" color="#0F172A" />
           </Pressable>
-          <Text
-            style={styles.headerTitle}
-          >
-            Competition Not Found
-          </Text>
+          <Text style={styles.headerTitle}>Kompetisi tidak ditemukan</Text>
           <View style={{ width: 24 }} />
         </View>
-        <View
-          style={{
-            flex: 1,
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <Text
-            style={styles.errorText}
-          >
-            This competition could not
-            be loaded.
-          </Text>
+        <View style={styles.center}>
+          <Text style={styles.errorText}>Kompetisi tidak dapat dimuat.</Text>
+          <Pressable style={styles.retryBtn} onPress={() => router.back()}>
+            <Text style={styles.retryText}>Kembali</Text>
+          </Pressable>
         </View>
       </View>
     );
   }
 
-  const already = registrations.some(
-    (r) => r.compId === comp.id,
-  );
-
   return (
-    <View
-      style={[
-        styles.container,
-        { paddingTop: insets.top },
-      ]}
-    >
-      {/* Header with back button */}
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
       <View style={styles.header}>
-        <Pressable
-          onPress={handleBack}
-          style={styles.backBtn}
-        >
-          <IconSymbol
-            size={24}
-            name="chevron.left"
-            color="#0F172A"
-          />
+        <Pressable onPress={handleBack} style={styles.backBtn}>
+          <IconSymbol size={24} name="chevron.left" color="#0F172A" />
         </Pressable>
-        <Text
-          style={styles.headerTitle}
-          numberOfLines={1}
-        >
-          {comp.title}
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {comp.name}
         </Text>
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Competition emoji and quick info */}
+      {/* Info card */}
       <View style={styles.infoCard}>
         <Text style={styles.emoji}>
-          {comp.image}
+          {CATEGORY_EMOJIS[comp.category] ?? "🏆"}
         </Text>
-        <Text style={styles.compTitle}>
-          {comp.title}
-        </Text>
-        <Text style={styles.compOrg}>
-          {comp.organizer}
-        </Text>
+        <Text style={styles.compTitle}>{comp.name}</Text>
+        <Text style={styles.compOrg}>{comp.organizerName}</Text>
         <Text style={styles.compMeta}>
-          {comp.category} ·{" "}
-          {comp.grade.join(", ")} ·{" "}
-          {comp.deadline}
+          {comp.category} · {comp.gradeLevel.replace(/,/g, ", ")} ·{" "}
+          Tutup {formatDate(comp.regCloseDate)}
         </Text>
-        <Text
-          style={[
-            styles.compPrice,
-            { marginTop: 12 },
-          ]}
-        >
-          {formatPrice(comp.price)}
+        <Text style={[styles.compPrice, { marginTop: 12 }]}>
+          {formatPrice(comp.fee)}
         </Text>
+        {isClosed && (
+          <View style={styles.closedBadge}>
+            <Text style={styles.closedText}>Pendaftaran Ditutup</Text>
+          </View>
+        )}
       </View>
 
-      {/* Tab navigation */}
+      {/* Tab nav */}
       <View style={styles.tabNav}>
-        <Pressable
-          style={[
-            styles.tab,
-            activeTab === "overview" &&
-              styles.tabActive,
-          ]}
-          onPress={() =>
-            setActiveTab("overview")
-          }
-        >
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab ===
-                "overview" &&
-                styles.tabLabelActive,
-            ]}
+        {(["overview", "registration", "payment"] as const).map((tab) => (
+          <Pressable
+            key={tab}
+            style={[styles.tab, activeTab === tab && styles.tabActive]}
+            onPress={() => setActiveTab(tab)}
           >
-            Halaman Utama
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[
-            styles.tab,
-            activeTab ===
-              "registration" &&
-              styles.tabActive,
-          ]}
-          onPress={() =>
-            setActiveTab("registration")
-          }
-        >
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab ===
-                "registration" &&
-                styles.tabLabelActive,
-            ]}
-          >
-            Pendaftaran
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[
-            styles.tab,
-            activeTab === "payment" &&
-              styles.tabActive,
-          ]}
-          onPress={() =>
-            setActiveTab("payment")
-          }
-        >
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === "payment" &&
-                styles.tabLabelActive,
-            ]}
-          >
-            Pembayaran
-          </Text>
-        </Pressable>
+            <Text
+              style={[styles.tabLabel, activeTab === tab && styles.tabLabelActive]}
+            >
+              {tab === "overview" ? "Tentang" : tab === "registration" ? "Daftar" : "Pembayaran"}
+            </Text>
+          </Pressable>
+        ))}
       </View>
 
       {/* Tab content */}
-      <ScrollView
-        contentContainerStyle={
-          styles.tabContent
-        }
-      >
+      <ScrollView contentContainerStyle={styles.tabContent}>
         {activeTab === "overview" && (
           <View>
-            <Text
-              style={
-                styles.sectionTitle
-              }
-            >
-              About
-            </Text>
-            <Text
-              style={styles.sectionText}
-            >
-              {comp.description}
+            <Text style={styles.sectionTitle}>Tentang Kompetisi</Text>
+            <Text style={styles.sectionText}>{comp.description}</Text>
+
+            <Text style={styles.sectionTitle}>Tanggal Penting</Text>
+            <View style={styles.infoBox}>
+              <Text style={styles.boxLabel}>Pendaftaran Dibuka</Text>
+              <Text style={styles.boxValue}>{formatDate(comp.regOpenDate)}</Text>
+            </View>
+            <View style={styles.infoBox}>
+              <Text style={styles.boxLabel}>Pendaftaran Ditutup</Text>
+              <Text style={styles.boxValue}>{formatDate(comp.regCloseDate)}</Text>
+            </View>
+            <View style={styles.infoBox}>
+              <Text style={styles.boxLabel}>Tanggal Kompetisi</Text>
+              <Text style={styles.boxValue}>{formatDate(comp.competitionDate)}</Text>
+            </View>
+
+            <Text style={styles.sectionTitle}>Jenjang Pendidikan</Text>
+            <Text style={styles.sectionText}>
+              {comp.gradeLevel.replace(/,/g, ", ")}
             </Text>
 
-            <Text
-              style={
-                styles.sectionTitle
-              }
-            >
-              Dates
-            </Text>
-            <Text
-              style={styles.sectionText}
-            >
-              Start: {comp.startDate}
-            </Text>
-            <Text
-              style={styles.sectionText}
-            >
-              End: {comp.endDate}
-            </Text>
-
-            <Text
-              style={
-                styles.sectionTitle
-              }
-            >
-              Ages / Grades
-            </Text>
-            <Text
-              style={styles.sectionText}
-            >
-              {comp.ages} ·{" "}
-              {comp.grade.join(", ")}
-            </Text>
-
-            {comp.steps?.length ? (
+            {comp.quota && (
               <>
-                <Text
-                  style={
-                    styles.sectionTitle
-                  }
-                >
-                  Steps
-                </Text>
-                {comp.steps.map(
-                  (
-                    s: string,
-                    i: number,
-                  ) => (
-                    <Text
-                      key={i}
-                      style={
-                        styles.sectionText
-                      }
-                    >
-                      • {s}
-                    </Text>
-                  ),
-                )}
+                <Text style={styles.sectionTitle}>Kuota Peserta</Text>
+                <Text style={styles.sectionText}>{comp.quota} peserta</Text>
               </>
-            ) : null}
-
-            <Text
-              style={
-                styles.sectionTitle
-              }
-            >
-              Prize
-            </Text>
-            <Text
-              style={styles.sectionText}
-            >
-              {comp.prize}
-            </Text>
+            )}
           </View>
         )}
 
-        {activeTab ===
-          "registration" && (
+        {activeTab === "registration" && (
           <View>
-            <Text
-              style={
-                styles.sectionTitle
-              }
-            >
-              Registration Information
-            </Text>
-            <View
-              style={styles.infoBox}
-            >
-              <Text
-                style={styles.boxLabel}
-              >
-                Registration Status
-              </Text>
-              <Text
-                style={styles.boxValue}
-              >
-                {already
-                  ? "✓ Registered"
-                  : "Not Registered"}
+            <Text style={styles.sectionTitle}>Status Pendaftaran</Text>
+            <View style={styles.infoBox}>
+              <Text style={styles.boxLabel}>Status Kamu</Text>
+              <Text style={[styles.boxValue, { color: already ? "#059669" : "#94A3B8" }]}>
+                {already ? "✓ Sudah Terdaftar" : "Belum Terdaftar"}
               </Text>
             </View>
 
-            <View
-              style={styles.infoBox}
-            >
-              <Text
-                style={styles.boxLabel}
-              >
-                Registration Deadline
-              </Text>
-              <Text
-                style={styles.boxValue}
-              >
-                {comp.deadline}
-              </Text>
-            </View>
-
-            <View
-              style={styles.infoBox}
-            >
-              <Text
-                style={styles.boxLabel}
-              >
-                Eligible Grades
-              </Text>
-              <Text
-                style={styles.boxValue}
-              >
-                {comp.grade.join(", ")}
-              </Text>
-            </View>
-
-            <View
-              style={styles.infoBox}
-            >
-              <Text
-                style={styles.boxLabel}
-              >
-                Age Range
-              </Text>
-              <Text
-                style={styles.boxValue}
-              >
-                {comp.ages}
-              </Text>
-            </View>
-
-            <Text
-              style={[
-                styles.sectionTitle,
-                { marginTop: 20 },
-              ]}
-            >
-              Registration Steps
-            </Text>
-            {comp.steps?.map(
-              (
-                s: string,
-                i: number,
-              ) => (
-                <View
-                  key={i}
-                  style={
-                    styles.stepItem
-                  }
-                >
-                  <View
-                    style={
-                      styles.stepNumber
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.stepNumberText
-                      }
-                    >
-                      {i + 1}
-                    </Text>
-                  </View>
-                  <Text
-                    style={
-                      styles.stepText
-                    }
-                  >
-                    {s}
+            <Text style={styles.sectionTitle}>Dokumen yang Diperlukan</Text>
+            {comp.requiredDocs.length > 0 ? (
+              comp.requiredDocs.map((doc, i) => (
+                <View key={i} style={styles.docItem}>
+                  <Text style={styles.docBullet}>•</Text>
+                  <Text style={styles.docText}>
+                    {doc.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
                   </Text>
                 </View>
-              ),
+              ))
+            ) : (
+              <Text style={styles.sectionText}>Tidak ada dokumen yang diperlukan.</Text>
             )}
           </View>
         )}
 
         {activeTab === "payment" && (
           <View>
-            <Text
-              style={
-                styles.sectionTitle
-              }
-            >
-              Payment Information
-            </Text>
-            <View
-              style={styles.infoBox}
-            >
-              <Text
-                style={styles.boxLabel}
-              >
-                Registration Fee
-              </Text>
-              <Text
-                style={[
-                  styles.boxValue,
-                  {
-                    fontSize: 20,
-                    fontWeight: "800",
-                  },
-                ]}
-              >
-                {formatPrice(
-                  comp.price,
-                )}
+            <Text style={styles.sectionTitle}>Biaya Pendaftaran</Text>
+            <View style={styles.infoBox}>
+              <Text style={styles.boxLabel}>Total Biaya</Text>
+              <Text style={[styles.boxValue, { fontSize: 20, fontWeight: "800" }]}>
+                {formatPrice(comp.fee)}
               </Text>
             </View>
 
-            {comp.price > 0 ? (
-              <>
-                <Text
-                  style={[
-                    styles.sectionText,
-                    { marginTop: 12 },
-                  ]}
-                >
-                  Payment methods will
-                  be provided after you
-                  register. You can pay
-                  via bank transfer or
-                  online payment
-                  gateway.
-                </Text>
-                <Text
-                  style={[
-                    styles.sectionTitle,
-                    { marginTop: 16 },
-                  ]}
-                >
-                  Payment Status
-                </Text>
-                <View
-                  style={styles.infoBox}
-                >
-                  <Text
-                    style={
-                      styles.boxLabel
-                    }
-                  >
-                    Your Payment Status
-                  </Text>
-                  <Text
-                    style={[
-                      styles.boxValue,
-                      {
-                        color: already
-                          ? "#EF4444"
-                          : "#94A3B8",
-                      },
-                    ]}
-                  >
-                    {already
-                      ? "Pending"
-                      : "Not Registered Yet"}
-                  </Text>
-                </View>
-              </>
+            {comp.fee > 0 ? (
+              <Text style={[styles.sectionText, { marginTop: 12 }]}>
+                Metode pembayaran (GoPay, OVO, Dana, Bank Transfer) akan tersedia setelah kamu mendaftar.
+                Integrasi Midtrans sedang dalam pengembangan.
+              </Text>
             ) : (
-              <Text
-                style={[
-                  styles.sectionText,
-                  {
-                    marginTop: 12,
-                    color: "#059669",
-                  },
-                ]}
-              >
-                ✓ This competition is
-                FREE! No payment
-                required.
+              <Text style={[styles.sectionText, { marginTop: 12, color: "#059669" }]}>
+                ✓ Kompetisi ini GRATIS! Tidak ada biaya pendaftaran.
               </Text>
             )}
           </View>
         )}
       </ScrollView>
 
-      {/* Register button at bottom */}
-      <View
-        style={[
-          styles.footer,
-          {
-            paddingBottom:
-              insets.bottom + 12,
-          },
-        ]}
-      >
+      {/* Register CTA */}
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
         <Pressable
           style={[
             styles.registerBtn,
-            already &&
-              styles.registerBtnDisabled,
+            (already || isClosed) && styles.registerBtnDisabled,
           ]}
           onPress={() => {
-            if (!already) {
-              registerCompetition(
-                comp.id,
-              );
+            if (!already && !isClosed) {
+              Analytics.track("registration_started", {
+                competitionId: comp.id,
+                name: comp.name,
+                fee: comp.fee,
+              });
+              registerCompetition(comp.id, { competitionName: comp.name, fee: comp.fee });
             }
-            router.push(
-              "/(tabs)/my-competitions",
-            );
+            router.push("/(tabs)/my-competitions");
           }}
+          disabled={isClosed && !already}
         >
-          <Text
-            style={
-              styles.registerBtnText
-            }
-          >
-            {already
-              ? "✓ Registered"
-              : "Register Now"}
+          <Text style={styles.registerBtnText}>
+            {isClosed
+              ? "Pendaftaran Ditutup"
+              : already
+              ? "✓ Sudah Terdaftar"
+              : "Daftar Sekarang"}
           </Text>
         </Pressable>
       </View>
@@ -591,10 +283,8 @@ export default function CompetitionDetailPage() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F8FAFC",
-  },
+  container: { flex: 1, backgroundColor: "#F8FAFC" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -605,10 +295,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E2E8F0",
   },
-  backBtn: {
-    padding: 8,
-    marginLeft: -8,
-  },
+  backBtn: { padding: 8, marginLeft: -8 },
   headerTitle: {
     flex: 1,
     textAlign: "center",
@@ -624,9 +311,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E2E8F0",
   },
-  emoji: {
-    fontSize: 48,
-  },
+  emoji: { fontSize: 48 },
   compTitle: {
     fontSize: 18,
     fontWeight: "800",
@@ -634,22 +319,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
   },
-  compOrg: {
-    color: "#64748B",
-    marginTop: 4,
-    textAlign: "center",
+  compOrg: { color: "#64748B", marginTop: 4, textAlign: "center" },
+  compMeta: { color: "#94A3B8", fontSize: 12, marginTop: 4, textAlign: "center" },
+  compPrice: { fontWeight: "800", color: "#0F172A", textAlign: "center", fontSize: 16 },
+  closedBadge: {
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+    marginTop: 8,
   },
-  compMeta: {
-    color: "#94A3B8",
-    fontSize: 12,
-    marginTop: 4,
-    textAlign: "center",
-  },
-  compPrice: {
-    fontWeight: "800",
-    color: "#0F172A",
-    textAlign: "center",
-  },
+  closedText: { color: "#DC2626", fontWeight: "700", fontSize: 12 },
   tabNav: {
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -659,28 +339,14 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 8,
     alignItems: "center",
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
   },
-  tabActive: {
-    borderBottomColor: Brand.primary,
-  },
-  tabLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#94A3B8",
-    textAlign: "center",
-  },
-  tabLabelActive: {
-    color: Brand.primary,
-  },
-  tabContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    paddingBottom: 120,
-  },
+  tabActive: { borderBottomColor: Brand.primary },
+  tabLabel: { fontSize: 12, fontWeight: "700", color: "#94A3B8" },
+  tabLabelActive: { color: Brand.primary },
+  tabContent: { paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 120 },
   sectionTitle: {
     fontWeight: "800",
     fontSize: 16,
@@ -688,11 +354,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
   },
-  sectionText: {
-    color: "#334155",
-    lineHeight: 20,
-    marginTop: 6,
-  },
+  sectionText: { color: "#334155", lineHeight: 22, marginTop: 4 },
   infoBox: {
     backgroundColor: "#fff",
     borderRadius: 8,
@@ -701,40 +363,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
-  boxLabel: {
-    color: "#64748B",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  boxValue: {
-    color: "#0F172A",
-    fontWeight: "700",
-    marginTop: 6,
-  },
-  stepItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  stepNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Brand.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  stepNumberText: {
-    color: "#fff",
-    fontWeight: "800",
-  },
-  stepText: {
-    flex: 1,
-    color: "#334155",
-    lineHeight: 20,
-    paddingTop: 4,
-  },
+  boxLabel: { color: "#64748B", fontSize: 12, fontWeight: "600" },
+  boxValue: { color: "#0F172A", fontWeight: "700", marginTop: 6 },
+  docItem: { flexDirection: "row", marginBottom: 8 },
+  docBullet: { color: Brand.primary, fontWeight: "800", marginRight: 8, fontSize: 16 },
+  docText: { flex: 1, color: "#334155", lineHeight: 22 },
   footer: {
     position: "absolute",
     bottom: 0,
@@ -752,16 +385,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
-  registerBtnDisabled: {
-    backgroundColor: "#CBD5E1",
+  registerBtnDisabled: { backgroundColor: "#CBD5E1" },
+  registerBtnText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  errorText: { color: "#64748B", fontSize: 14, marginBottom: 16 },
+  retryBtn: {
+    backgroundColor: Brand.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
-  registerBtnText: {
-    color: "#fff",
-    fontWeight: "800",
-    fontSize: 16,
-  },
-  errorText: {
-    color: "#64748B",
-    fontSize: 14,
-  },
+  retryText: { color: "#fff", fontWeight: "700" },
 });

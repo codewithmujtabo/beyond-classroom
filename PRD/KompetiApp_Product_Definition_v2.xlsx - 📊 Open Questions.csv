@@ -1,0 +1,39 @@
+"KompetiApp — Open Questions, Decisions & Changelog",,,,,,
+"Use this sheet to track unresolved decisions, scope changes, and document history. Update Status as decisions are made.",,,,,,
+,,,,,,
+Open Questions,,,,,,
+#,Question,Owner,Due by,Status,Decision made,Impact on PRD / stories
+1,Is parent payment approval a hard requirement or optional in v1?,PM + Design,Sprint 1,Open,,Affects S09 scope and registration flow modal
+2,Quota management: first-come-first-served or waitlist?,PM,Sprint 1,Open,,Affects competition detail screen + registration CTA
+3,Who verifies student NISN authenticity? Manual or Dapodik API?,PM + Eng,Sprint 2,Open,,Affects profile setup flow and backend complexity
+4,Refund policy: who owns it — platform or organizer?,Legal + PM,Pre-beta,Open,,"Affects T&C, payment flow, organizer contract"
+5,Do organizers self-serve listing or go through account manager in v1?,Growth + PM,Sprint 1,Open,,Affects onboarding flow and S13 scope
+6,PDPA / data privacy compliance for student document storage?,Legal,Pre-beta,Open,,"Affects document vault, storage architecture, privacy policy"
+7,Representative revenue model: commission (2%) or flat fee (Rp 500K/mo)?,PM + BD,v2 planning,Deferred,,Affects R04 implementation and partner contract
+8,School admin dashboard: separate app or role-switched view in student app?,PM + Eng,Sprint 1,Open,,Affects engineering scope and IA for school surface
+9,Free competition registration: zero-amount payment or bypass payment entirely?,PM + Eng,Sprint 2,Open,,Affects payment flow branch logic
+10,What is the minimum viable organizer verification before listing a competition?,PM + Legal,Pre-launch,Open,,Affects organizer onboarding and platform trust
+,,,,,,
+,,,,,,
+Change Log,,,,,,
+Date,Version,Changed by,Section affected,Change description,Reason,Reviewed by
+2025-01-01,v0.1,PM,All,Initial PRD draft created,Product kick-off,
+,v0.2,PM,User Stories,Added Representative persona (P5) as v2 scope,Partner feedback,
+,v0.3,PM,PRD + Stories,Combined PRD and user stories into single Excel deliverable,Engineer handoff,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+16,"WhatsApp template approval — have we submitted notification templates to Meta for pre-approval? (Required before beta, takes 1–3 days per template)",PM + Engineering,Pre-beta,Critical,Open,
+17,UU PDP consent screen — does personalized recommendation engine require explicit behavioral data consent at profile setup? Legal review needed.,Legal + PM,Pre-beta,Critical,Open,
+18,"Email service provider selection — SendGrid, AWS SES, or another ESP for weekly digest delivery?",Engineering,Sprint 3,High,Open,
+19,"Global notification frequency caps (2 push/day, 2 WA/week) — are these the right numbers? Validate with user research before engineering.",PM + Design,Sprint 2,High,Open,
+20,Matching algorithm threshold — what minimum match score (grade + category overlap) should trigger a notification? Starting at 60% — validate.,PM + Engineering,Sprint 3,Medium,Open,
+21,"View duration tracking for deadline nudge (E04) — is 10 seconds the right threshold for ""intent signal""? Too low = spam, too high = miss real interest.",PM + Design,Sprint 3,Medium,Open,
+22,"Sponsored placement (E07) — when do we introduce paid recommendation slots for organizers? Requires ≥5,000 active students to be meaningful.",PM + BD,v2 planning,Low,Deferred,

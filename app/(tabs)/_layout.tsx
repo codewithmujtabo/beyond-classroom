@@ -9,32 +9,24 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
 
-  // Android gesture bar lives below the tab bar — add its height as padding
   const tabBarHeight =
-    Platform.OS === "ios"
-      ? 85
-      : 60 + insets.bottom;
+    Platform.OS === "ios" ? 85 : 60 + insets.bottom;
   const tabBarPaddingBottom =
-    Platform.OS === "ios"
-      ? 28
-      : insets.bottom + 8;
+    Platform.OS === "ios" ? 28 : insets.bottom + 8;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor:
-          Brand.primary,
-        tabBarInactiveTintColor:
-          "#94A3B8",
+        tabBarActiveTintColor: Brand.primary,
+        tabBarInactiveTintColor: "#94A3B8",
         tabBarButton: HapticTab,
         tabBarStyle: {
           backgroundColor: "#fff",
           borderTopColor: "#F1F5F9",
           borderTopWidth: 1,
           height: tabBarHeight,
-          paddingBottom:
-            tabBarPaddingBottom,
+          paddingBottom: tabBarPaddingBottom,
           paddingTop: 8,
         },
         tabBarLabelStyle: {
@@ -43,77 +35,53 @@ export default function TabLayout() {
         },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol
-              size={26}
-              name="house.fill"
-              color={color}
-            />
-          ),
-        }}
-      />
+      {/* Tab 1 — Discover (competition list + banners) */}
       <Tabs.Screen
         name="competitions"
         options={{
-          title: "Explore",
+          title: "Discover",
           tabBarIcon: ({ color }) => (
-            <IconSymbol
-              size={26}
-              name="trophy.fill"
-              color={color}
-            />
+            <IconSymbol size={26} name="trophy.fill" color={color} />
           ),
         }}
       />
+
+      {/* Tab 2 — My Registrations */}
       <Tabs.Screen
         name="my-competitions"
         options={{
-          title: "My Comps",
+          title: "My Regs",
           tabBarIcon: ({ color }) => (
-            <IconSymbol
-              size={26}
-              name="checkmark.seal.fill"
-              color={color}
-            />
+            <IconSymbol size={26} name="checkmark.seal.fill" color={color} />
           ),
         }}
       />
+
+      {/* Tab 3 — Notifications (in-app inbox) */}
       <Tabs.Screen
-        name="news"
+        name="notifications"
         options={{
-          title: "News",
+          title: "Notifications",
           tabBarIcon: ({ color }) => (
-            <IconSymbol
-              size={26}
-              name="newspaper.fill"
-              color={color}
-            />
+            <IconSymbol size={26} name="bell.fill" color={color} />
           ),
         }}
       />
+
+      {/* Tab 4 — Profile */}
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
           tabBarIcon: ({ color }) => (
-            <IconSymbol
-              size={26}
-              name="person.fill"
-              color={color}
-            />
+            <IconSymbol size={26} name="person.fill" color={color} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="competitions/[id]"
-        options={{
-          href: null,
-        }}
-      />
+
+      {/* Hidden screens — not shown in tab bar */}
+      <Tabs.Screen name="index" options={{ href: null }} />
+      <Tabs.Screen name="competitions/[id]" options={{ href: null }} />
     </Tabs>
   );
 }

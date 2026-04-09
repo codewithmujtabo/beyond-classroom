@@ -1,12 +1,21 @@
+import * as Sentry from "@sentry/node";
 import express from "express";
 import cors from "cors";
 import { env } from "./config/env";
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  tracesSampleRate: process.env.NODE_ENV === "production" ? 0.2 : 1.0,
+  environment: process.env.NODE_ENV || "development",
+  enabled: !!process.env.SENTRY_DSN,
+});
 import { errorHandler } from "./middleware/error-handler";
 import authRoutes from "./routes/auth.routes";
 import usersRoutes from "./routes/users.routes";
 import registrationsRoutes from "./routes/registrations.routes";
 import documentsRoutes from "./routes/documents.routes";
 import competitionsRoutes from "./routes/competitions.routes";
+import paymentsRoutes from "./routes/payments.routes";
 
 const app = express();
 
@@ -24,6 +33,10 @@ app.use("/api/users", usersRoutes);
 app.use("/api/registrations", registrationsRoutes);
 app.use("/api/documents", documentsRoutes);
 app.use("/api/competitions", competitionsRoutes);
+app.use("/api/payments", paymentsRoutes);
+
+// Sentry error handler must come before our own error handler
+Sentry.setupExpressErrorHandler(app);
 
 // Error handler
 app.use(errorHandler);

@@ -1,0 +1,63 @@
+KompetiApp — Information Architecture,,,,,,,
+"Complete screen inventory across all 3 portals. Edit Screen Name, Description, Priority, and Notes directly.",,,,,,,
+Portal,Section,Screen Name,Description,Priority,User,Navigation note,Notes
+Student Mobile App,Auth,Splash / onboarding,"Value proposition, 3-slide carousel, skip option",Must,Students · Parents,Entry point — shown once on first install,
+Student Mobile App,Auth,Sign up,Phone number entry + OTP verification,Must,Students · Parents,Pre-login stack,
+Student Mobile App,Auth,Log in,"Phone + OTP, Google SSO secondary option",Must,Students · Parents,Pre-login stack,
+Student Mobile App,Auth,Profile setup,"Name, school, grade, NISN, photo — first time only",Must,Students,"Post sign-up, before home",
+Student Mobile App,Tab 1 — Discover,Competition list,"Default feed, category + grade filters, search bar",Must,Students · Parents,Tab bar → Discover,
+Student Mobile App,Tab 1 — Discover,Search results,"Keyword search, deadline + fee range filters",Should,Students · Parents,From search bar on list,
+Student Mobile App,Tab 1 — Discover,Competition detail,"Full info, required docs, organizer name, Register CTA",Must,Students · Parents,From competition list card,
+Student Mobile App,Tab 1 — Discover,Organizer profile,Organizer info + their other competitions,Should,Students,From organizer name on detail,
+Student Mobile App,Tab 2 — My Registrations,Registration dashboard,"All regs, status badges, sorted soonest deadline first",Must,Students · Parents,Tab bar → My Registrations,
+Student Mobile App,Tab 2 — My Registrations,Registration detail,"Submission summary, payment receipt, organizer decision",Must,Students · Parents,From registration dashboard row,
+Student Mobile App,Tab 2 — My Registrations,Payment receipt,"PDF view, download + share to WA",Must,Students · Parents,From registration detail,
+Student Mobile App,Registration Flow (Modal),Step 1 · Review info,"Pre-filled from profile, confirm all details",Must,Students,Modal launched from competition detail,No back-navigation allowed
+Student Mobile App,Registration Flow (Modal),Step 2 · Attach docs,Select from vault or upload new document,Must,Students,Modal step 2,Inline upload branch if no vault doc
+Student Mobile App,Registration Flow (Modal),Step 3 · Choose payment,GoPay / OVO / Dana / Bank VA selection,Must,Students · Parents,Modal step 3,Free competitions skip this step
+Student Mobile App,Registration Flow (Modal),Step 4 · Confirm + pay,"Order summary, total, final pay button",Must,Students · Parents,Modal step 4,
+Student Mobile App,Registration Flow (Modal),Payment processing,Deep-link to e-wallet or VA instructions screen,Must,Students · Parents,Hands off to gateway,Return via deep-link on completion
+Student Mobile App,Registration Flow (Modal),Success confirmation,"Lottie animation, registration number, share to WA",Must,Students · Parents,Post-payment success,
+Student Mobile App,Registration Flow (Modal),Payment failed / retry,"Choose different payment method, try again",Must,Students · Parents,Post-payment failure,Registration saved as Submitted
+Student Mobile App,Tab 3 — Profile,Profile overview,"Personal info summary, edit trigger, linked accounts",Must,Students,Tab bar → Profile,
+Student Mobile App,Tab 3 — Profile,Edit profile,"Update name, school, grade, NISN, photo",Must,Students,From profile overview,
+Student Mobile App,Tab 3 — Profile,Document vault,"All uploaded docs, add / delete / replace",Must,Students,From profile overview,
+Student Mobile App,Tab 3 — Profile,Upload document,"Camera or gallery, label doc type, compress",Must,Students,From document vault or Step 2,
+Student Mobile App,Tab 3 — Profile,Linked accounts,"Parent link management, approve or remove",Should,Students · Parents,From profile overview,
+Student Mobile App,Tab 3 — Profile,Notification settings,"Push on/off, WA on/off, per-competition toggle",Should,Students · Parents,From profile overview,
+Student Mobile App,Tab 3 — Profile,App settings,"Language, logout, about, help + FAQ",Must,Students · Parents,From profile overview,
+Organizer Web Portal,Auth,Login,Email + password for organizer accounts,Must,Organizers,Pre-login — separate web app,
+Organizer Web Portal,Auth,Onboarding / setup,"Org name, contact, bank details, accept platform terms",Must,Organizers,Post first login,
+Organizer Web Portal,Competitions,Competition list,"All competitions: draft, live, closed with status badges",Must,Organizers,Left sidebar → Competitions,
+Organizer Web Portal,Competitions,Create competition,"Multi-step form: details, dates, fee, docs, eligibility",Must,Organizers,From competition list,
+Organizer Web Portal,Competitions,Edit competition,Edit any field; locked fields shown if registrations exist,Must,Organizers,From competition list row,
+Organizer Web Portal,Competitions,Competition preview,Student-facing view before publishing to app,Should,Organizers,From create/edit flow,
+Organizer Web Portal,Registrations,Registrations list,"All participants, status filter, search by name/school",Must,Organizers,Left sidebar → Registrations,
+Organizer Web Portal,Registrations,Registration detail,"Student info, submitted docs, approve / reject action",Must,Organizers,From registrations list,
+Organizer Web Portal,Registrations,Bulk approve,"Select all paid+complete, one-click approve",Must,Organizers,From registrations list,
+Organizer Web Portal,Registrations,Export participants,"CSV + PDF download, filtered by status",Must,Organizers,From registrations list,
+Organizer Web Portal,Revenue,Revenue dashboard,"Registrations received, total collected, payout schedule",Should,Organizers,Left sidebar → Revenue,
+Organizer Web Portal,Revenue,Payout history,"Past payouts, bank account settings",Should,Organizers,From revenue dashboard,
+Organizer Web Portal,Account,Organization profile,"Name, logo, contact, website, verified badge status",Must,Organizers,Left sidebar → Account,
+Organizer Web Portal,Account,Team members,Invite co-admins for same organization,Should,Organizers,From account,
+Organizer Web Portal,Account,Notification preferences,"Email alerts for new registrations, payments",Must,Organizers,From account,
+School Admin Dashboard,Auth,Login,"School account login, invited by platform or representative",Must,Teachers · Admins,Pre-login — web or role-switched,
+School Admin Dashboard,Students,Student roster,"All students at school, status, grade filter",Should,Teachers · Admins,Left sidebar → Students,
+School Admin Dashboard,Students,Student profile (view),"Read-only: personal info, registrations, documents",Should,Teachers · Admins,From student roster,
+School Admin Dashboard,Students,Add / invite student,Invite student to join platform under school account,Should,Teachers · Admins,From student roster,
+School Admin Dashboard,Registrations,All registrations,"Every student's reg across all competitions, filterable",Should,Teachers · Admins,Left sidebar → Registrations,
+School Admin Dashboard,Registrations,Bulk register,"Select students + competition, pre-fill, submit all",Should,Teachers · Admins,From registrations,
+School Admin Dashboard,Registrations,Registration detail,View individual submission and payment status,Should,Teachers · Admins,From registrations list,Read-only
+School Admin Dashboard,Reports,Participation report,"Competitions entered, statuses, by grade + student",Should,Teachers · Admins,Left sidebar → Reports,
+School Admin Dashboard,Reports,Export,CSV export of all registrations for record-keeping,Should,Teachers · Admins,From participation report,
+School Admin Dashboard,Settings,School profile,"School name, NPSN, address, contact details",Must,Admins,Left sidebar → Settings,
+School Admin Dashboard,Settings,Admin accounts,Manage which teachers have dashboard access,Should,Admins,From settings,
+Student mobile app,Tab 1 · Discover,"Recommended for you
+Personalized section above browse list — based on grade, category, past registrations",Must,Main nav,To do,,
+Student mobile app,Notification centre,"Bell icon inbox — all notifications sorted newest first, badge count, 30-day archive, mark-read, delete",Must,Header,To do,,
+Student mobile app,Notification centre,"Announcement detail
+Full-screen view of a platform announcement or promoted competition with Register CTA",Must,Header,To do,,
+Student mobile app,Tab 3 · Profile,"Notification preferences (expanded)
+Per-type + per-channel toggles, quiet hours setting, category interest filter",Must,Main nav,To do,,
+Organizer web portal,Account,"Promote competition
+Toggle featured placement for a competition in student recommendations (sponsored — v2)",Should,Main nav,To do,,

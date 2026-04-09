@@ -14,6 +14,7 @@ export async function signup(params: {
   city: string;
   role: string;
   roleData: any;
+  consentAccepted: boolean;
 }): Promise<AuthResponse> {
   const data = await apiRequest<AuthResponse>("/auth/signup", {
     method: "POST",
@@ -56,6 +57,34 @@ export async function verifyOtp(
   });
   await setToken(data.token);
   return data;
+}
+
+export async function sendPhoneOtp(phone: string): Promise<void> {
+  await apiRequest("/auth/phone/send-otp", {
+    method: "POST",
+    body: { phone },
+    auth: false,
+  });
+}
+
+export async function verifyPhoneOtp(
+  phone: string,
+  code: string
+): Promise<AuthResponse | { noAccount: true; phone: string }> {
+  try {
+    const data = await apiRequest<AuthResponse>("/auth/phone/verify-otp", {
+      method: "POST",
+      body: { phone, code },
+      auth: false,
+    });
+    await setToken(data.token);
+    return data;
+  } catch (err: any) {
+    if (err.message === "NO_ACCOUNT") {
+      return { noAccount: true, phone };
+    }
+    throw err;
+  }
 }
 
 export async function getMe(): Promise<any | null> {
