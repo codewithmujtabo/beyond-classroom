@@ -1,0 +1,27 @@
+,,,,,
+,,,,,
+,,,,,
+,,KompetiApp,,,
+,,Product Definition Workbook  ·  K-12 Competition Hub  ·  Indonesia,,,
+,,,,,
+,,One-stop registration & payment platform for K-12 competitions,,,
+,,,,,
+,,Version,v1.0 Draft,Status,In review
+,,Market,Indonesia,Platform,Mobile-first (iOS + Android)
+,,Owner,Eduversal Indonesia,Scope,v1 + v2 roadmap
+,,Created,2026,Updated,2026
+,,,,,
+,,Workbook contents,,,
+,,📋 Cover,This page — document metadata and navigation guide,,
+,,📄 PRD,"Full product requirements document — problem, goals, features, technical, launch",,
+,,📖 User Stories,"All 20 user stories with acceptance criteria — editable, filterable by persona",,
+,,🗺 Info Arch,Information architecture — all screens across 3 portals with priority tags,,
+,,🔄 User Flows,"Step-by-step user flow diagrams for registration, payment, and organizer flows",,
+,,📊 Open Questions,Open questions log with owner and due date — track unresolved decisions,,
+,,,,,
+,,How to use this workbook,,,
+,,1.,Each tab is a living document — edit directly in the yellow-highlighted cells.,,
+,,2.,User Stories tab has dropdown filters for Persona and Priority — use these during sprint planning.,,
+,,3.,Info Arch tab has a screen count summary at the top — update as you add or remove screens.,,
+,,4.,"User Flows tab uses color coding: blue = student action, amber = system action, green = success, red = error.",,
+,,5.,Open Questions tab — assign an owner and due date for every unresolved item before sprint planning.,,

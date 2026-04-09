@@ -1,71 +1,104 @@
 /**
- * AuthContext — handles user authentication via custom Express backend
- * Manages login, signup, and logout
+ * AuthContext — single source of truth for auth state, user profile,
+ * and in-memory registrations (T9 will add API persistence).
+ *
+ * Replaces the previous split between AuthContext + UserContext.
+ * Import useAuth() or useUser() (alias) from this file.
  */
 
 import * as authService from "@/services/auth.service";
+import * as userService from "@/services/user.service";
+import * as registrationsService from "@/services/registrations.service";
+import { AppUser } from "@/constants/mock-user";
 import React, {
-    createContext,
-    useContext,
-    useEffect,
-    useState,
+  createContext,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
 
-export interface AuthUser {
+export type { AppUser };
+
+export type RegistrationStatus = "registered" | "paid" | "completed";
+
+export interface Registration {
   id: string;
-  email: string;
-  fullName?: string;
-  school?: string;
-  phone?: string;
-  grade?: string;
+  compId: string;
+  competitionName: string;
+  fee: number;
+  status: RegistrationStatus;
+  createdAt: string;
+  meta?: Record<string, any>;
 }
 
 interface AuthContextType {
-  user: AuthUser | null;
+  user: AppUser | null;
   isLoading: boolean;
   error: string | null;
   isAuthenticated: boolean;
-  signup: (
-    email: string,
-    password: string,
-    fullName: string,
-  ) => Promise<void>;
-  login: (
-    email: string,
-    password: string,
-  ) => Promise<void>;
+  // Auth actions
+  login: (email: string, password: string) => Promise<void>;
+  signup: (params: {
+    email: string;
+    password: string;
+    fullName: string;
+    phone: string;
+    city: string;
+    role: string;
+    roleData: any;
+    consentAccepted: boolean;
+  }) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
+  // Profile refresh (call after profile edits)
+  fetchUser: (userId?: string) => Promise<void>;
+  registrations: Registration[];
+  registerCompetition: (
+    compId: string,
+    meta?: Record<string, any>
+  ) => Promise<void>;
+  markRegistrationPaid: (id: string) => Promise<void>;
+  removeRegistration: (id: string) => Promise<void>;
+  lastRegisteredId: string | null;
+  clearLastRegistered: () => void;
+  // setUser exposed for screens that directly update profile fields
+  setUser: (user: AppUser | null) => void;
+  // Refresh registrations list (for pull-to-refresh)
+  refreshRegistrations: () => Promise<void>;
 }
 
-const AuthContext =
-  createContext<AuthContextType>({
-    user: null,
-    isLoading: true,
-    error: null,
-    isAuthenticated: false,
-    signup: async () => {},
-    login: async () => {},
-    logout: async () => {},
-    clearError: () => {},
-  });
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  isLoading: true,
+  error: null,
+  isAuthenticated: false,
+  login: async () => {},
+  signup: async () => {},
+  logout: async () => {},
+  clearError: () => {},
+  fetchUser: async () => {},
+  registrations: [],
+  registerCompetition: async () => {},
+  markRegistrationPaid: async () => {},
+  removeRegistration: async () => {},
+  lastRegisteredId: null,
+  clearLastRegistered: () => {},
+  setUser: () => {},
+  refreshRegistrations: async () => {},
+});
 
 export function AuthProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [user, setUser] =
-    useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] =
-    useState(true);
-  const [error, setError] = useState<
-    string | null
-  >(null);
-  const [
-    isAuthenticated,
-    setIsAuthenticated,
-  ] = useState(false);
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [lastRegisteredId, setLastRegisteredId] = useState<string | null>(null);
+
+  const isAuthenticated = user !== null;
 
   useEffect(() => {
     checkAuth();
@@ -74,106 +107,77 @@ export function AuthProvider({
   async function checkAuth() {
     try {
       setIsLoading(true);
-      setError(null);
-
-      const userData = await authService.getMe();
-
-      if (!userData) {
-        setIsAuthenticated(false);
+      const me = await authService.getMe();
+      if (!me) {
         setUser(null);
         return;
       }
-
-      setUser({
-        id: userData.id,
-        email: userData.email,
-        fullName: userData.fullName,
-        school: userData.school,
-        phone: userData.phone,
-        grade: userData.grade,
-      });
-      setIsAuthenticated(true);
-    } catch (err: any) {
-      console.error("Auth check error:", err);
-      setError(
-        err?.message || "Authentication check failed",
-      );
-      setIsAuthenticated(false);
+      await Promise.all([loadProfile(), loadRegistrations()]);
+    } catch {
       setUser(null);
     } finally {
       setIsLoading(false);
     }
   }
 
-  async function signup(
-    email: string,
-    password: string,
-    fullName: string,
-  ) {
+  async function loadRegistrations() {
+    try {
+      const regs = await registrationsService.list();
+      setRegistrations(regs);
+    } catch {
+      // Non-fatal — user still sees empty list
+    }
+  }
+
+  async function loadProfile() {
+    const data = await userService.getProfile();
+    if (data) {
+      setUser(mapProfile(data));
+    }
+  }
+
+  // fetchUser is the public-facing refresh — userId arg kept for
+  // backwards compat with existing callers (register.tsx, login.tsx)
+  async function fetchUser(_userId?: string) {
+    try {
+      await loadProfile();
+    } catch (err) {
+      console.error("Error fetching user:", err);
+    }
+  }
+
+
+  async function login(email: string, password: string) {
     try {
       setError(null);
       setIsLoading(true);
-
-      const { user: userData } =
-        await authService.signup({
-          email,
-          password,
-          fullName,
-          phone: "",
-          city: "",
-          role: "student",
-          roleData: {},
-        });
-
-      if (userData) {
-        setUser({
-          id: userData.id,
-          email: userData.email,
-          fullName: userData.fullName,
-          school: userData.school,
-          phone: userData.phone,
-          grade: userData.grade,
-        });
-        setIsAuthenticated(true);
-      }
+      await authService.login(email, password);
+      await Promise.all([loadProfile(), loadRegistrations()]);
     } catch (err: any) {
-      const errorMessage =
-        err?.message || "Signup failed";
-      setError(errorMessage);
+      setError(err?.message || "Login failed");
       throw err;
     } finally {
       setIsLoading(false);
     }
   }
 
-  async function login(
-    email: string,
-    password: string,
-  ) {
+  async function signup(params: {
+    email: string;
+    password: string;
+    fullName: string;
+    phone: string;
+    city: string;
+    role: string;
+    roleData: any;
+    consentAccepted: boolean;
+  }) {
     try {
       setError(null);
       setIsLoading(true);
-
-      const { user: userData } =
-        await authService.login(email, password);
-
-      if (!userData) {
-        throw new Error("Login failed - no user returned");
-      }
-
-      setUser({
-        id: userData.id,
-        email: userData.email,
-        fullName: userData.fullName,
-        school: userData.school,
-        phone: userData.phone,
-        grade: userData.grade,
-      });
-      setIsAuthenticated(true);
+      await authService.signup(params);
+      await loadProfile(); // New user has no registrations yet
     } catch (err: any) {
-      const errorMessage =
-        err?.message || "Login failed";
-      setError(errorMessage);
+      setError(err?.message || "Signup failed");
       throw err;
     } finally {
       setIsLoading(false);
@@ -183,24 +187,80 @@ export function AuthProvider({
   async function logout() {
     try {
       setError(null);
-      setIsLoading(true);
-
       await authService.logout();
-
       setUser(null);
-      setIsAuthenticated(false);
+      setRegistrations([]);
+      setLastRegisteredId(null);
     } catch (err: any) {
-      const errorMessage =
-        err?.message || "Logout failed";
-      setError(errorMessage);
+      setError(err?.message || "Logout failed");
       throw err;
-    } finally {
-      setIsLoading(false);
     }
   }
 
   function clearError() {
     setError(null);
+  }
+
+  async function registerCompetition(
+    compId: string,
+    meta: Record<string, any> = {}
+  ) {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const reg: Registration = {
+      id,
+      compId,
+      competitionName: meta.competitionName ?? "Unknown",
+      fee: meta.fee ?? 0,
+      status: "registered",
+      createdAt: new Date().toISOString(),
+      meta,
+    };
+    // Optimistic update first so UI responds immediately
+    setRegistrations((s) => [reg, ...s]);
+    setLastRegisteredId(compId);
+    try {
+      const { status: serverStatus } = await registrationsService.create({ id, compId, meta });
+      // Server may upgrade status to "paid" for free competitions
+      if (serverStatus !== reg.status) {
+        setRegistrations((s) =>
+          s.map((r) => (r.id === id ? { ...r, status: serverStatus as any } : r))
+        );
+      }
+    } catch (err) {
+      // Roll back optimistic update on failure
+      setRegistrations((s) => s.filter((r) => r.id !== id));
+      setLastRegisteredId(null);
+      throw err;
+    }
+  }
+
+  async function markRegistrationPaid(id: string) {
+    setRegistrations((s) =>
+      s.map((r) => (r.id === id ? { ...r, status: "paid" as const } : r))
+    );
+    try {
+      await registrationsService.updateStatus(id, "paid");
+    } catch {
+      // Roll back
+      setRegistrations((s) =>
+        s.map((r) => (r.id === id ? { ...r, status: "registered" as const } : r))
+      );
+    }
+  }
+
+  async function removeRegistration(id: string) {
+    const prev = registrations.find((r) => r.id === id);
+    setRegistrations((s) => s.filter((r) => r.id !== id));
+    try {
+      await registrationsService.remove(id);
+    } catch {
+      // Roll back
+      if (prev) setRegistrations((s) => [prev, ...s]);
+    }
+  }
+
+  function clearLastRegistered() {
+    setLastRegisteredId(null);
   }
 
   return (
@@ -210,10 +270,19 @@ export function AuthProvider({
         isLoading,
         error,
         isAuthenticated,
-        signup,
         login,
+        signup,
         logout,
         clearError,
+        fetchUser,
+        registrations,
+        registerCompetition,
+        markRegistrationPaid,
+        removeRegistration,
+        lastRegisteredId,
+        clearLastRegistered,
+        setUser,
+        refreshRegistrations: loadRegistrations,
       }}
     >
       {children}
@@ -222,11 +291,28 @@ export function AuthProvider({
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error(
-      "useAuth must be used within AuthProvider",
-    );
-  }
-  return context;
+  return useContext(AuthContext);
+}
+
+/** Alias — import useUser from here instead of UserContext */
+export const useUser = useAuth;
+
+// ─── Helper ───────────────────────────────────────────────────────────────────
+
+function mapProfile(data: any): AppUser {
+  return {
+    id: data.id,
+    name: data.fullName || "",
+    email: data.email || "",
+    phone: data.phone || "",
+    school: data.school || "",
+    level: data.grade as "SD" | "SMP" | "SMA" | undefined,
+    city: data.city || "",
+    role: (data.role as "student" | "parent" | "teacher") || "student",
+    avatarUrl: data.photoUrl,
+    subject: data.subject,
+    childName: data.childName,
+    childSchool: data.childSchool,
+    childLevel: data.childGrade as "SD" | "SMP" | "SMA" | undefined,
+  };
 }

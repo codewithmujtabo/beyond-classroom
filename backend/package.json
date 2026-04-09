@@ -7,27 +7,36 @@
     "dev": "nodemon",
     "build": "tsc",
     "start": "node dist/index.js",
-    "db:init": "psql $DATABASE_URL < src/db/schema.sql",
-    "db:seed": "psql $DATABASE_URL < src/db/seed.sql"
+    "db:migrate": "node-pg-migrate up --migrations-dir migrations",
+    "db:migrate:down": "node-pg-migrate down --count 1 --migrations-dir migrations",
+    "db:migrate:redo": "node-pg-migrate redo --migrations-dir migrations",
+    "db:seed": "ts-node src/db/seed.ts",
+    "db:init": "psql $DATABASE_URL < src/db/schema.sql"
   },
   "dependencies": {
-    "express": "^5.1.0",
-    "pg": "^8.13.0",
+    "@sentry/node": "^10.47.0",
     "bcrypt": "^5.1.1",
-    "jsonwebtoken": "^9.0.2",
-    "nodemailer": "^6.9.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.0"
+    "dotenv": "^16.4.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.3.2",
+    "jsonwebtoken": "^9.0.2",
+    "midtrans-client": "^1.4.3",
+    "node-pg-migrate": "^8.0.4",
+    "nodemailer": "^6.9.0",
+    "pg": "^8.13.0",
+    "twilio": "^5.13.1"
   },
   "devDependencies": {
-    "@types/express": "^5.0.0",
-    "@types/pg": "^8.11.0",
     "@types/bcrypt": "^5.0.2",
-    "@types/jsonwebtoken": "^9.0.0",
-    "@types/nodemailer": "^6.4.0",
     "@types/cors": "^2.8.0",
-    "typescript": "~5.9.2",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/midtrans-client": "^1.4.0",
+    "@types/nodemailer": "^6.4.0",
+    "@types/pg": "^8.11.0",
     "nodemon": "^3.1.0",
-    "ts-node": "^10.9.0"
+    "ts-node": "^10.9.0",
+    "typescript": "~5.9.2"
   }
 }

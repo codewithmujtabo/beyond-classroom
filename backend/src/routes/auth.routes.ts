@@ -8,7 +8,9 @@ import {
   generateOtp,
 } from "../services/auth.service";
 import { sendOtpEmail } from "../services/email.service";
+import { sendPhoneOtp, verifyPhoneOtp, toE164 } from "../services/twilio.service";
 import { authMiddleware } from "../middleware/auth";
+import { otpSendLimiter, otpVerifyLimiter, authLimiter } from "../middleware/rate-limit";
 
 const router = Router();
 
@@ -59,12 +61,17 @@ async function fetchUserWithRole(userId: string) {
 }
 
 // ── POST /api/auth/signup ─────────────────────────────────────────────────
-router.post("/signup", async (req: Request, res: Response) => {
+router.post("/signup", authLimiter, async (req: Request, res: Response) => {
   try {
-    const { email, password, fullName, phone, city, role, roleData } = req.body;
+    const { email, password, fullName, phone, city, role, roleData, consentAccepted } = req.body;
 
     if (!email || !password || !fullName || !role) {
       res.status(400).json({ message: "email, password, fullName, and role are required" });
+      return;
+    }
+
+    if (!consentAccepted) {
+      res.status(400).json({ message: "You must accept the privacy policy to create an account" });
       return;
     }
 
@@ -88,10 +95,10 @@ router.post("/signup", async (req: Request, res: Response) => {
       await client.query("BEGIN");
 
       const userResult = await client.query(
-        `INSERT INTO users (email, password_hash, full_name, phone, city, role)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO users (email, password_hash, full_name, phone, city, role, consent_accepted_at, consent_version)
+         VALUES ($1, $2, $3, $4, $5, $6, now(), $7)
          RETURNING id`,
-        [email, passwordHash, fullName, phone || null, city || null, role]
+        [email, passwordHash, fullName, phone || null, city || null, role, "1.0"]
       );
       const userId = userResult.rows[0].id;
 
@@ -131,7 +138,7 @@ router.post("/signup", async (req: Request, res: Response) => {
 });
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────
-router.post("/login", async (req: Request, res: Response) => {
+router.post("/login", authLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -163,7 +170,7 @@ router.post("/login", async (req: Request, res: Response) => {
 });
 
 // ── POST /api/auth/send-otp ──────────────────────────────────────────────
-router.post("/send-otp", async (req: Request, res: Response) => {
+router.post("/send-otp", otpSendLimiter, async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
 
@@ -189,7 +196,7 @@ router.post("/send-otp", async (req: Request, res: Response) => {
 });
 
 // ── POST /api/auth/verify-otp ────────────────────────────────────────────
-router.post("/verify-otp", async (req: Request, res: Response) => {
+router.post("/verify-otp", otpVerifyLimiter, async (req: Request, res: Response) => {
   try {
     const { email, code } = req.body;
 
@@ -228,6 +235,68 @@ router.post("/verify-otp", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("Verify OTP error:", err);
     res.status(500).json({ message: "OTP verification failed" });
+  }
+});
+
+// ── POST /api/auth/phone/send-otp ────────────────────────────────────────
+router.post("/phone/send-otp", otpSendLimiter, async (req: Request, res: Response) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      res.status(400).json({ message: "phone is required" });
+      return;
+    }
+    await sendPhoneOtp(phone);
+    res.json({ message: "OTP sent via SMS" });
+  } catch (err: any) {
+    console.error("Phone send-otp error:", err);
+    res.status(500).json({ message: err.message || "Failed to send OTP" });
+  }
+});
+
+// ── POST /api/auth/phone/verify-otp ──────────────────────────────────────
+router.post("/phone/verify-otp", otpVerifyLimiter, async (req: Request, res: Response) => {
+  try {
+    const { phone, code } = req.body;
+    if (!phone || !code) {
+      res.status(400).json({ message: "phone and code are required" });
+      return;
+    }
+
+    const approved = await verifyPhoneOtp(phone, code);
+    if (!approved) {
+      res.status(400).json({ message: "Invalid or expired OTP" });
+      return;
+    }
+
+    const e164 = toE164(phone);
+
+    // Find existing user by phone
+    const result = await pool.query(
+      "SELECT id FROM users WHERE phone = $1 OR phone = $2",
+      [phone, e164]
+    );
+
+    if (result.rows.length === 0) {
+      // No account yet — return a signal so the frontend can redirect to signup
+      res.status(404).json({ message: "NO_ACCOUNT", phone: e164 });
+      return;
+    }
+
+    const userId = result.rows[0].id;
+
+    // Mark phone as verified
+    await pool.query(
+      "UPDATE users SET phone_verified_at = now() WHERE id = $1",
+      [userId]
+    );
+
+    const token = generateToken(userId);
+    const user = await fetchUserWithRole(userId);
+    res.json({ token, user });
+  } catch (err: any) {
+    console.error("Phone verify-otp error:", err);
+    res.status(500).json({ message: err.message || "OTP verification failed" });
   }
 });
 

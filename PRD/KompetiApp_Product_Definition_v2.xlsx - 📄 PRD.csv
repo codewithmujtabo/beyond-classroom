@@ -1,0 +1,88 @@
+KompetiApp — Product Requirements Document,,,,,,,,Notes
+v0.1 Draft  ·  Mobile-first  ·  Indonesia market  ·  Edit cells in white/light rows directly,,,,,,,,
+Version,v0.1 Draft,,,Status,For review,,,reviewed
+Platform,Mobile-first (iOS + Android),,,Owner,Product Manager,,,reviewed
+Market,Indonesia — K-12 competition,,,Date,2025,,,reviewed
+,,,,,,,,reviewed
+1 · Problem Statement,,,,,,,,
+Problem,"Students, parents, and schools in Indonesia manage K-12 competition registrations across dozens of fragmented websites — each with different forms, payment methods, and deadlines. This causes missed opportunities, duplicate admin work, and zero visibility into registration status. There is no single trusted platform that aggregates competitions, handles payment, and keeps all stakeholders informed in one place.",,,,,,,
+Who is affected,Students (Grade 7–12) · Parents · Teachers & School Admins · Competition Organizers · Representatives (v2),,,,,,,
+2 · Business Objectives & Success Metrics,,,,,,,,
+Primary metric,Completed registrations end-to-end (discovery → paid → confirmed) on platform,,,,,,,later
+6-month target,"1,000 completed registrations · 50 active competitions listed · 5 organizer partners onboarded",,,,,,,later
+Revenue model,6% transaction fee per registration + organizer listing packages (v1 late-stage),,,,,,,later
+D30 retention target,≥ 40% of registered users return within 30 days,,,,,,,later
+Payment success rate,≥ 95% payment completion rate (industry benchmark: 90–92%),,,,,,,later
+Organizer NPS,≥ 50 NPS from organizer partners after first competition,,,,,,,later
+3 · V1 Scope — In Scope,,,,,,,,
+Competition discovery & search,"Browse + filter by category, grade, deadline, fee range, Level: Province, National, International",,,,,,,reviewed
+Student profile & document vault,"One-time profile creation, reusable document storage",,,,,,,reviewed
+Registration flow,"Pre-filled form, document attachment, 4-step modal flow",,,,,,,reviewed
+Integrated payment,"GoPay, OVO, Dana, Bank Virtual Account via Midtrans",,,,,,,reviewed
+Registration status tracker,Dashboard with Draft / Submitted / Paid / Confirmed / Rejected states,,,,,,,reviewed
+Organizer portal,"Self-serve competition listing, registration review, participant export",,,,,,,reviewed
+School admin dashboard,"Bulk registration, student roster, audit trail, CSV export",,,,,,,reviewed
+4 · Explicitly Out of Scope (v1),,,,,,,,
+Won't build,Results / score management · In-app messaging · Certificate issuance · Live streaming · International competitions · B2B school invoicing · AI recommendations · Representative portal (v2),,,,,,,
+5 · UX & Design Requirements,,,,,,,,
+Navigation model — student app,Bottom tab bar: Discover / My Registrations / Profile,,,,,,,?
+Navigation model — organizer portal,"Left sidebar: Competitions / Registrations / Revenue / Account (web, desktop-first)",,,,,,,?
+Navigation model — school dashboard,"Hamburger drawer on tablet, left sidebar on desktop",,,,,,,?
+Touch targets,Minimum 48×48dp for all interactive elements (WCAG AA),,,,,,,?
+Loading states,Skeleton loaders appear within 300ms — never full-screen spinners,,,,,,,?
+Empty states,Friendly illustration + clear CTA on every empty screen,,,,,,,?
+Error states,Retry action + friendly copy in Bahasa Indonesia,,,,,,,?
+Offline states,Cached competition listings readable; payment flow blocked with banner,,,,,,,?
+Success states,Lottie animation + registration number + share to WA CTA,,,,,,,?
+Form design,Single-column layout; progress indicator on registration modal steps,,,,,,,?
+Document upload,Camera capture + gallery import; compress to <2MB client-side,,,,,,,?
+Payment UX,Deep-link into e-wallet apps; return to app on completion,,,,,,,?
+Language,Bahasa Indonesia primary; English toggle for international competitions,,,,,,,?
+Small Android breakpoint,"360×640px — core CTA above fold, no horizontal scroll",,,,,,,?
+Standard mobile breakpoint,390×844px (iPhone 14 reference),,,,,,,?
+Tablet breakpoint,768px+ — teacher/admin views get 2-column layout,,,,,,,?
+6 · Technical Requirements,,,,,,,,
+iOS target,iOS 16+ (covers ~90% of Indonesian iPhone users),,,,,,,?
+Android target,Android 10+ / API 29+ (~85% of target market),,,,,,,?
+Framework recommendation,React Native (single codebase) — TBD by engineering,,,,,,,?
+Organizer portal,"Next.js web app, mobile-responsive, separate from main app",,,,,,,?
+Auth,Phone number + OTP (primary) · Google SSO (secondary) · No username/password,,,,,,,?
+Payment gateway,"Midtrans supports GoPay, OVO, Dana, BCA VA, Mandiri VA",,,,,,,?
+Notifications,Firebase Cloud Messaging (push) + WhatsApp Business API (status updates),,,,,,,?
+File storage,"S3-compatible object storage, encrypted at rest",,,,,,,?
+Cold start SLO,< 3s to interactive on mid-range Android (4GB RAM),,,,,,,?
+API response SLO,< 500ms p95 for all read endpoints,,,,,,,?
+Payment redirect SLO,< 1s to redirect to payment gateway after 'pay now',,,,,,,?
+Image upload SLO,< 5s on 3G for a 2MB compressed document,,,,,,,?
+Permission — push,Deadline reminders. Show value before requesting. Fallback: in-app inbox.,,,,,,,?
+Permission — camera,"Document upload only. Request on first upload action, not on app launch.",,,,,,,?
+Permission — location,Not required in v1 — competition location is text only.,,,,,,,?
+Offline — cached,"Browsed competition listings (24h), registration list, profile data",,,,,,,?
+Offline — requires connectivity,"All payment flows, document upload, new search, registration submission",,,,,,,?
+7 · Open Questions & Risks,,,,,,,,
+Question,Owner,Due by,Status,Decision / Notes,,,,
+Is parent payment approval a hard requirement or optional in v1?,PM + Design,Sprint 1,Open,No,,,,reviewed
+Quota management: first-come-first-served or waitlist?,PM,Sprint 1,Open,,,,,
+Who verifies student NISN authenticity? Manual or Dapodik API?,PM + Eng,Sprint 2,Open,Dapodik API,,,,reviewed
+Refund policy: who owns it — platform or organizer?,Legal + PM,Pre-beta,Open,platform,,,,reviewed
+Do organizers self-serve or go through account manager in v1?,Growth + PM,Sprint 1,Open,,,,,
+PDPA / data privacy compliance for student document storage?,Legal,Pre-beta,Open,,,,,
+Representative revenue model: commission or flat fee?,PM + BD,v2 planning,Deferred,,,,,
+School admin dashboard: separate app or role-switched view in student app?,PM + Eng,Sprint 1,Open,role switch,,,,reviewed
+,,,,,,,,
+,3.7  Engagement & Notification Engine (NEW),,,,,,,
+,Engagement,"Personalized ""Recommended for you"" section on Discover tab home",Must,,,,,
+,Engagement,Post-registration push notification with competition recommendation (30 min after payment),Must,,,,,
+,Engagement,New competition published alert — matched to student grade + category profile,Must,,,,,
+,Engagement,Deadline urgency nudge for viewed-but-not-registered competitions (3-day + 1-day),Must,,,,,
+,Engagement,Weekly competition digest via WhatsApp (pre-approved Meta template),Should,,,,,
+,Engagement,"Weekly competition digest via email (HTML template, unsubscribe link required)",Should,,,,,
+,Engagement,"In-app notification centre (bell icon, badge count, 30-day archive)",Must,,,,,
+,Engagement,"Granular notification preferences (per-type + per-channel toggles, quiet hours)",Must,,,,,
+,Engagement,Global push cap: max 2 push notifications/day per student across ALL trigger types,Must,,,,,
+,Engagement,WA cap: max 2 WhatsApp messages/week per student across ALL trigger types,Must,,,,,
+,Engagement,Silent hours enforcement: no push between 10pm–8am local time,Must,,,,,
+,Engagement,Deduplication: same competition never recommended twice to same student per channel,Must,,,,,
+,Engagement,UU PDP consent screen at profile setup for behavioral data / personalization,Must,,,,,
+,Engagement,Platform broadcast tool (manual send to segmented users — PM-controlled),Should,,,,,
+,Engagement,Sponsored competition placement in recommendations (organizer-paid — v2),Won't,,,,,

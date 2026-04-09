@@ -1,5 +1,5 @@
 import { Brand } from "@/constants/theme";
-import { useUser } from "@/context/UserContext";
+import { useUser } from "@/context/AuthContext";
 import { router } from "expo-router";
 import {
     ScrollView,

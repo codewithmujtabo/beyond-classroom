@@ -1,15 +1,8 @@
-import {
-  CATEGORIES,
-  COMPETITIONS,
-} from "@/constants/competitions";
 import { Brand } from "@/constants/theme";
-import { useUser } from "@/context/UserContext";
 import { useRouter } from "expo-router";
-import React, {
-  useMemo,
-  useState,
-} from "react";
+import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
@@ -18,294 +11,247 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQuery } from "@tanstack/react-query";
+import * as competitionsService from "@/services/competitions.service";
+import { Analytics } from "@/services/analytics";
 
-function formatPrice(p: number) {
-  return p === 0
-    ? "Free"
-    : `Rp ${p.toLocaleString("id-ID")}`;
+const GRADES = ["SD", "SMP", "SMA"] as const;
+
+const CATEGORY_EMOJIS: Record<string, string> = {
+  Math: "📐",
+  Science: "🔬",
+  Debate: "🎤",
+  Arts: "🎨",
+  Language: "📚",
+  Technology: "🤖",
+  Sports: "⚽",
+};
+
+function formatPrice(fee: number) {
+  return fee === 0 ? "Free" : `Rp ${fee.toLocaleString("id-ID")}`;
 }
 
-export default function CompetitionsScreen() {
-  const insets = useSafeAreaInsets();
-  const { user } = useUser();
-  // removed local router usage to avoid creating navigation side-effects here
-  const router = useRouter();
-  const [query, setQuery] =
-    useState("");
-  const [
-    activeCategory,
-    setActiveCategory,
-  ] = useState<string | null>(null);
-  const [gradeFilter, setGradeFilter] =
-    useState<string | null>(null);
+function formatDeadline(date: string | null) {
+  if (!date) return "-";
+  return new Date(date).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
-  const data = useMemo(() => {
-    return COMPETITIONS.filter((c) => {
-      if (
-        activeCategory &&
-        c.category !== activeCategory
-      )
-        return false;
-      if (
-        gradeFilter &&
-        !c.grade.includes(gradeFilter)
-      )
-        return false;
-      if (
-        query &&
-        !c.title
-          .toLowerCase()
-          .includes(query.toLowerCase())
-      )
-        return false;
+/** Skeleton card shown while loading */
+function SkeletonCard() {
+  return (
+    <View style={[styles.card, styles.skeleton]}>
+      <View style={styles.skeletonLine} />
+      <View style={[styles.skeletonLine, { width: "60%", marginTop: 8 }]} />
+      <View style={[styles.skeletonLine, { width: "40%", marginTop: 8 }]} />
+    </View>
+  );
+}
+
+export default function DiscoverScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [gradeFilter, setGradeFilter] = useState<string | null>(null);
+
+  const { data: allCompetitions = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ["competitions"],
+    queryFn: () => competitionsService.list(),
+  });
+
+  // Derive unique categories from API data
+  const categories = useMemo(() => {
+    const cats = [...new Set(allCompetitions.map((c) => c.category))].sort();
+    return cats;
+  }, [allCompetitions]);
+
+  // Client-side filtering (data set is small; avoids extra API calls per keystroke)
+  const filtered = useMemo(() => {
+    return allCompetitions.filter((c) => {
+      if (activeCategory && c.category !== activeCategory) return false;
+      if (gradeFilter && !c.gradeLevel.includes(gradeFilter)) return false;
+      if (query && !c.name.toLowerCase().includes(query.toLowerCase())) return false;
       return true;
     });
-  }, [
-    query,
-    activeCategory,
-    gradeFilter,
-  ]);
+  }, [allCompetitions, query, activeCategory, gradeFilter]);
 
   const ListHeader = () => (
     <View>
       <View style={styles.header}>
-        <Text style={styles.title}>
-          Competitions
-        </Text>
+        <Text style={styles.title}>Discover</Text>
         <Text style={styles.subtitle}>
-          Browse national &
-          international competitions
+          Browse national &amp; regional competitions
         </Text>
       </View>
 
-      <View style={styles.searchRow}>
-        <TextInput
-          placeholder="Search competitions"
-          value={query}
-          onChangeText={setQuery}
-          style={styles.searchInput}
-        />
-      </View>
+      {/* Search bar */}
+      <TextInput
+        placeholder="Search competitions..."
+        placeholderTextColor="#94A3B8"
+        value={query}
+        onChangeText={setQuery}
+        style={styles.searchInput}
+      />
 
-      <View style={styles.filterRow}>
+      {/* Category chips */}
+      {categories.length > 0 && (
         <FlatList
-          data={CATEGORIES}
+          data={categories}
           horizontal
-          showsHorizontalScrollIndicator={
-            false
-          }
-          keyExtractor={(c) => c.label}
-          renderItem={({ item: c }) => (
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(c) => c}
+          contentContainerStyle={styles.chips}
+          renderItem={({ item: cat }) => (
             <Pressable
               onPress={() =>
-                setActiveCategory(
-                  (p) =>
-                    p === c.label
-                      ? null
-                      : c.label,
-                )
+                setActiveCategory((p) => (p === cat ? null : cat))
               }
-              style={[
-                styles.chip,
-                activeCategory ===
-                  c.label &&
-                  styles.chipActive,
-              ]}
+              style={[styles.chip, activeCategory === cat && styles.chipActive]}
             >
-              <Text
-                style={styles.chipEmoji}
-              >
-                {c.emoji}
+              <Text style={styles.chipEmoji}>
+                {CATEGORY_EMOJIS[cat] ?? "🏆"}
               </Text>
               <Text
                 style={[
                   styles.chipLabel,
-                  activeCategory ===
-                    c.label &&
-                    styles.chipLabelActive,
+                  activeCategory === cat && styles.chipLabelActive,
                 ]}
               >
-                {c.label}
+                {cat}
               </Text>
             </Pressable>
           )}
         />
-      </View>
+      )}
 
+      {/* Grade filter buttons */}
       <View style={styles.gradeRow}>
-        {["SD", "SMP", "SMA"].map(
-          (g) => (
-            <Pressable
-              key={g}
-              onPress={() =>
-                setGradeFilter((p) =>
-                  p === g ? null : g,
-                )
-              }
+        {GRADES.map((g) => (
+          <Pressable
+            key={g}
+            onPress={() => setGradeFilter((p) => (p === g ? null : g))}
+            style={[styles.gradeBtn, gradeFilter === g && styles.gradeBtnActive]}
+          >
+            <Text
               style={[
-                styles.gradeBtn,
-                gradeFilter === g &&
-                  styles.gradeBtnActive,
+                styles.gradeText,
+                gradeFilter === g && styles.gradeTextActive,
               ]}
             >
-              <Text
-                style={[
-                  styles.gradeText,
-                  gradeFilter === g &&
-                    styles.gradeTextActive,
-                ]}
-              >
-                {g}
-              </Text>
-            </Pressable>
-          ),
-        )}
+              {g}
+            </Text>
+          </Pressable>
+        ))}
       </View>
 
       <Text style={styles.sectionTitle}>
-        Available ({data.length})
+        {isLoading
+          ? "Loading..."
+          : `Available (${filtered.length})`}
       </Text>
     </View>
   );
 
+  if (isError) {
+    return (
+      <View style={[styles.container, styles.center, { paddingTop: insets.top }]}>
+        <Text style={styles.errorText}>Failed to load competitions</Text>
+        <Pressable style={styles.retryBtn} onPress={() => refetch()}>
+          <Text style={styles.retryText}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
-    <View
-      style={[
-        styles.container,
-        { paddingTop: insets.top },
-      ]}
-    >
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <FlatList
-        data={data}
+        data={isLoading ? [] : filtered}
         keyExtractor={(i) => i.id}
+        ListHeaderComponent={ListHeader}
+        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          isLoading ? (
+            // Skeleton loaders while fetching
+            <View>
+              {[1, 2, 3, 4].map((k) => (
+                <View key={k}>
+                  <SkeletonCard />
+                  <View style={{ height: 12 }} />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.center}>
+              <Text style={styles.emptyText}>No competitions found</Text>
+            </View>
+          )
+        }
         renderItem={({ item }) => (
           <Pressable
             style={styles.card}
             onPress={() => {
+              Analytics.track("competition_viewed", {
+                competitionId: item.id,
+                name: item.name,
+                category: item.category,
+              });
               router.push({
-                pathname:
-                  "/(tabs)/competitions/[id]",
-                params: {
-                  id: item.id,
-                  from: "competitions",
-                },
+                pathname: "/(tabs)/competitions/[id]",
+                params: { id: item.id },
               });
             }}
           >
-            <View
-              style={styles.cardTop}
-            >
-              <Text
-                style={styles.cardEmoji}
-              >
-                {item.image}
+            <View style={styles.cardTop}>
+              <Text style={styles.cardEmoji}>
+                {CATEGORY_EMOJIS[item.category] ?? "🏆"}
               </Text>
-              <View
-                style={styles.cardInfo}
-              >
-                <Text
-                  style={
-                    styles.cardTitle
-                  }
-                >
-                  {item.title}
+              <View style={styles.cardInfo}>
+                <Text style={styles.cardTitle} numberOfLines={2}>
+                  {item.name}
                 </Text>
-                <Text
-                  style={styles.cardOrg}
-                >
-                  {item.organizer}
-                </Text>
-                <Text
-                  style={
-                    styles.cardMeta
-                  }
-                >
-                  {item.category} ·{" "}
-                  {item.grade.join(
-                    ", ",
-                  )}{" "}
-                  · {item.deadline}
+                <Text style={styles.cardOrg}>{item.organizerName}</Text>
+                <Text style={styles.cardMeta}>
+                  {item.category} · {item.gradeLevel.replace(/,/g, ", ")} ·{" "}
+                  Tutup {formatDeadline(item.regCloseDate)}
                 </Text>
               </View>
             </View>
-            <View
-              style={styles.cardFooter}
-            >
-              <Text
-                style={styles.cardPrice}
-              >
-                {formatPrice(
-                  item.price,
-                )}
-              </Text>
-              <Pressable
-                onPress={() =>
-                  router.push(
-                    `/(tabs)/competitions/${item.id}`,
-                  )
-                }
-              >
-                <Text
-                  style={
-                    styles.cardAction
-                  }
-                >
-                  View
-                </Text>
-              </Pressable>
+            <View style={styles.cardFooter}>
+              <Text style={styles.cardPrice}>{formatPrice(item.fee)}</Text>
+              <Text style={styles.cardAction}>Lihat Detail →</Text>
             </View>
           </Pressable>
         )}
-        ItemSeparatorComponent={() => (
-          <View
-            style={{ height: 12 }}
-          />
-        )}
-        ListHeaderComponent={ListHeader}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingBottom: 40,
-        }}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F8FAFC",
-  },
-  header: {
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#64748B",
-    marginTop: 4,
-  },
-  searchRow: {
-    paddingHorizontal: 16,
-    marginTop: 12,
-  },
+  container: { flex: 1, backgroundColor: "#F8FAFC" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 40 },
+  listContent: { paddingHorizontal: 16, paddingBottom: 40 },
+  header: { paddingHorizontal: 4, marginBottom: 12, marginTop: 12 },
+  title: { fontSize: 28, fontWeight: "800", color: "#0F172A" },
+  subtitle: { fontSize: 14, color: "#64748B", marginTop: 4 },
   searchInput: {
     backgroundColor: "#fff",
     borderRadius: 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     height: 44,
     borderWidth: 1,
     borderColor: "#E6EEF8",
+    fontSize: 14,
+    color: "#0F172A",
+    marginBottom: 12,
   },
-  filterRow: {
-    marginTop: 12,
-    paddingVertical: 8,
-  },
+  chips: { paddingBottom: 8 },
   chip: {
     flexDirection: "row",
     alignItems: "center",
@@ -317,24 +263,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
-  chipActive: {
-    backgroundColor: Brand.primary,
-    borderColor: Brand.primary,
-  },
-  chipEmoji: { marginRight: 8 },
-  chipLabel: {
-    fontWeight: "600",
-    color: "#0F172A",
-  },
+  chipActive: { backgroundColor: Brand.primary, borderColor: Brand.primary },
+  chipEmoji: { marginRight: 6, fontSize: 14 },
+  chipLabel: { fontWeight: "600", fontSize: 13, color: "#0F172A" },
   chipLabelActive: { color: "#fff" },
-  gradeRow: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 8,
-  },
+  gradeRow: { flexDirection: "row", marginTop: 4, marginBottom: 8 },
   gradeBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
     backgroundColor: "#fff",
@@ -342,66 +277,55 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
-  gradeBtnActive: {
-    backgroundColor: Brand.primary,
-    borderColor: Brand.primary,
-  },
-  gradeText: {
-    fontWeight: "700",
-    color: "#0F172A",
-  },
+  gradeBtnActive: { backgroundColor: Brand.primary, borderColor: Brand.primary },
+  gradeText: { fontWeight: "700", color: "#0F172A", fontSize: 13 },
   gradeTextActive: { color: "#fff" },
   sectionTitle: {
-    paddingHorizontal: 20,
     fontSize: 16,
     fontWeight: "800",
-    marginTop: 8,
-    marginBottom: 8,
+    color: "#0F172A",
+    marginTop: 4,
+    marginBottom: 12,
+    paddingHorizontal: 4,
   },
   card: {
     backgroundColor: "#fff",
     borderRadius: 12,
-    padding: 12,
-    marginHorizontal: 0,
+    padding: 14,
     borderWidth: 1,
     borderColor: "#E6EEF8",
   },
-  cardTop: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  cardEmoji: {
-    fontSize: 36,
-    marginRight: 12,
-  },
+  cardTop: { flexDirection: "row", alignItems: "flex-start" },
+  cardEmoji: { fontSize: 32, marginRight: 12, marginTop: 2 },
   cardInfo: { flex: 1 },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  cardOrg: {
-    fontSize: 12,
-    color: "#64748B",
-    marginTop: 4,
-  },
-  cardMeta: {
-    fontSize: 12,
-    color: "#94A3B8",
-    marginTop: 6,
-  },
+  cardTitle: { fontSize: 15, fontWeight: "800", color: "#0F172A", lineHeight: 20 },
+  cardOrg: { fontSize: 12, color: "#64748B", marginTop: 3 },
+  cardMeta: { fontSize: 12, color: "#94A3B8", marginTop: 5 },
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
   },
-  cardPrice: {
-    fontWeight: "800",
-    color: "#0F172A",
+  cardPrice: { fontWeight: "800", color: "#0F172A", fontSize: 14 },
+  cardAction: { color: Brand.primary, fontWeight: "700", fontSize: 13 },
+  skeleton: { opacity: 0.5 },
+  skeletonLine: {
+    height: 14,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 6,
+    width: "80%",
   },
-  cardAction: {
-    color: Brand.primary,
-    fontWeight: "700",
+  errorText: { fontSize: 15, color: "#64748B", marginBottom: 16 },
+  retryBtn: {
+    backgroundColor: Brand.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
+  retryText: { color: "#fff", fontWeight: "700" },
+  emptyText: { fontSize: 14, color: "#94A3B8" },
 });

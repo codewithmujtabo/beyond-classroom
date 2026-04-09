@@ -1,13 +1,14 @@
 import { AppInput } from "@/components/common/AppInput";
 import * as authService from "@/services/auth.service";
 import { Brand } from "@/constants/theme";
-import { useUser } from "@/context/UserContext";
+import { useUser } from "@/context/AuthContext";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -50,10 +51,11 @@ export default function RegisterScreen() {
   const router = useRouter();
   const { fetchUser } = useUser();
 
-  // Step 1: Role selection, Step 2: Details
+  // Step 1: Role selection, Step 2: Details, Step 3: Consent
   const [step, setStep] = useState<
-    "role" | "details"
+    "role" | "details" | "consent"
   >("role");
+  const [consentChecked, setConsentChecked] = useState(false);
   const [role, setRole] =
     useState<Role>("student");
 
@@ -172,7 +174,10 @@ export default function RegisterScreen() {
 
   const handleCreateAccount =
     async () => {
-      if (!validateDetails()) return;
+      if (!consentChecked) {
+        Alert.alert("Persetujuan Diperlukan", "Kamu harus menyetujui kebijakan privasi untuk melanjutkan.");
+        return;
+      }
 
       setLoading(true);
       try {
@@ -206,6 +211,7 @@ export default function RegisterScreen() {
             city: city.trim(),
             role,
             roleData,
+            consentAccepted: true,
           });
 
         Alert.alert(
@@ -378,6 +384,93 @@ export default function RegisterScreen() {
             Continue
           </Text>
         </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // ─── Step 3: Consent ────────────────────────────────────────────────────────
+
+  if (step === "consent") {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}>
+          <View style={{ alignItems: "center", marginBottom: 24 }}>
+            <Text style={{ fontSize: 48, marginBottom: 12 }}>🔐</Text>
+            <Text style={[styles.stepTitle, { textAlign: "center" }]}>
+              Kebijakan Privasi
+            </Text>
+            <Text style={{ color: "#64748B", textAlign: "center", marginTop: 8, lineHeight: 20 }}>
+              Sebelum membuat akun, baca dan setujui ketentuan berikut.
+            </Text>
+          </View>
+
+          <View style={styles.consentBox}>
+            <Text style={styles.consentTitle}>Data yang kami kumpulkan</Text>
+            <Text style={styles.consentBody}>
+              • Profil & identitas (nama, email, nomor HP, kota){"\n"}
+              • Data pendidikan (sekolah, kelas, nilai — untuk orang tua/guru){"\n"}
+              • Dokumen yang kamu unggah (rapor, sertifikat, foto){"\n"}
+              • Aktivitas penggunaan aplikasi (kompetisi yang dilihat & didaftar)
+            </Text>
+
+            <Text style={[styles.consentTitle, { marginTop: 16 }]}>Bagaimana data digunakan</Text>
+            <Text style={styles.consentBody}>
+              • Menampilkan kompetisi yang relevan untukmu{"\n"}
+              • Memproses pendaftaran & pembayaran kompetisi{"\n"}
+              • Mengirimkan notifikasi penting terkait kompetisi{"\n"}
+              • Meningkatkan kualitas layanan Beyond Classroom
+            </Text>
+
+            <Text style={[styles.consentTitle, { marginTop: 16 }]}>Keamanan data</Text>
+            <Text style={styles.consentBody}>
+              Data kamu disimpan secara aman dan tidak dijual ke pihak ketiga.
+              Sesuai UU PDP (UU No. 27 Tahun 2022), kamu dapat meminta penghapusan
+              data dengan menghubungi tim kami.
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.checkRow}
+            onPress={() => setConsentChecked((v) => !v)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
+              {consentChecked && <Text style={{ color: "#fff", fontWeight: "800" }}>✓</Text>}
+            </View>
+            <Text style={styles.checkLabel}>
+              Saya telah membaca dan menyetujui{" "}
+              <Text
+                style={{ color: Brand.primary, textDecorationLine: "underline" }}
+                onPress={() => Linking.openURL("https://beyondclassroom.id/privacy")}
+              >
+                Kebijakan Privasi
+              </Text>{" "}
+              Beyond Classroom.
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        <View style={[styles.footerButtons, { paddingBottom: insets.bottom + 16 }]}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => setStep("details")}
+          >
+            <Text style={styles.backBtnText}>Back</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.registerBtn, (!consentChecked || loading) && styles.registerBtnDisabled]}
+            onPress={handleCreateAccount}
+            disabled={!consentChecked || loading}
+            activeOpacity={0.8}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.registerBtnText}>Buat Akun</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -688,27 +781,15 @@ export default function RegisterScreen() {
         <TouchableOpacity
           style={[
             styles.registerBtn,
-            loading &&
-              styles.registerBtnDisabled,
+            loading && styles.registerBtnDisabled,
           ]}
-          onPress={handleCreateAccount}
+          onPress={() => {
+            if (validateDetails()) setStep("consent");
+          }}
           disabled={loading}
           activeOpacity={0.8}
         >
-          {loading ? (
-            <ActivityIndicator
-              color="#fff"
-              size="small"
-            />
-          ) : (
-            <Text
-              style={
-                styles.registerBtnText
-              }
-            >
-              Create Account
-            </Text>
-          )}
+          <Text style={styles.registerBtnText}>Lanjutkan</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -887,5 +968,54 @@ const styles = StyleSheet.create({
   },
   registerBtnDisabled: {
     opacity: 0.6,
+  },
+  // ─── Consent Screen ───────────────────────────────────────────────────────
+  consentBox: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 20,
+  },
+  consentTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  consentBody: {
+    fontSize: 13,
+    color: "#475569",
+    lineHeight: 21,
+  },
+  checkRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    marginBottom: 8,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#CBD5E1",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  checkboxChecked: {
+    backgroundColor: Brand.primary,
+    borderColor: Brand.primary,
+  },
+  checkLabel: {
+    flex: 1,
+    fontSize: 13,
+    color: "#334155",
+    lineHeight: 20,
   },
 });
