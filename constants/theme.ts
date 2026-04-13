@@ -45,6 +45,50 @@ export const Colors = {
   },
 };
 
+// ─── Category colour system ───────────────────────────────────────────────────
+export const CategoryAccent: Record<string, string> = {
+  Math: "#7C3AED",
+  Science: "#10B981",
+  Debate: "#F59E0B",
+  Arts: "#EC4899",
+  Language: "#3B82F6",
+  Technology: "#8B5CF6",
+  Sports: "#F97316",
+};
+
+export const CategoryBg: Record<string, string> = {
+  Math: "#F5F3FF",
+  Science: "#ECFDF5",
+  Debate: "#FFFBEB",
+  Arts: "#FDF2F8",
+  Language: "#EFF6FF",
+  Technology: "#FAF5FF",
+  Sports: "#FFF7ED",
+};
+
+export const CategoryEmoji: Record<string, string> = {
+  Math: "📐",
+  Science: "🔬",
+  Debate: "🎤",
+  Arts: "🎨",
+  Language: "📚",
+  Technology: "🤖",
+  Sports: "⚽",
+};
+
+// ─── Grade level colours ──────────────────────────────────────────────────────
+export const GradeBg: Record<string, string> = {
+  SD: "#DBEAFE",
+  SMP: "#D1FAE5",
+  SMA: "#FEF3C7",
+};
+
+export const GradeText: Record<string, string> = {
+  SD: "#1D4ED8",
+  SMP: "#047857",
+  SMA: "#B45309",
+};
+
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */

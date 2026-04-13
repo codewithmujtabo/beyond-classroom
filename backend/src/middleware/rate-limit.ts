@@ -1,35 +1,36 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 /**
- * OTP send limiter: 5 requests per 15 minutes per IP.
+ * OTP send limiter: 5 requests per 15 minutes per IP + identifier.
  * Protects against SMS/email spam that costs money.
  */
 export const otpSendLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { keyGeneratorIpFallback: false },
   message: { message: "Too many OTP requests. Please wait 15 minutes and try again." },
   keyGenerator: (req) => {
-    // Key on IP + identifier (email or phone) to prevent per-target abuse
     const identifier = req.body?.email || req.body?.phone || "unknown";
-    return `${req.ip}:${identifier}`;
+    return `${ipKeyGenerator(req.ip ?? "")}:${identifier}`;
   },
 });
 
 /**
- * OTP verify limiter: 10 attempts per hour per IP.
+ * OTP verify limiter: 10 attempts per hour per IP + identifier.
  * Protects against brute-force OTP guessing.
  */
 export const otpVerifyLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
+  windowMs: 60 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { keyGeneratorIpFallback: false },
   message: { message: "Too many verification attempts. Please try again in an hour." },
   keyGenerator: (req) => {
     const identifier = req.body?.email || req.body?.phone || "unknown";
-    return `${req.ip}:${identifier}`;
+    return `${ipKeyGenerator(req.ip ?? "")}:${identifier}`;
   },
 });
 

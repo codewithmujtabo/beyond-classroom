@@ -263,7 +263,7 @@ export default function CompetitionDetailPage() {
                 name: comp.name,
                 fee: comp.fee,
               });
-              registerCompetition(comp.id, { competitionName: comp.name, fee: comp.fee });
+              registerCompetition(comp.id, { competitionName: comp.name, fee: comp.fee, category: comp.category });
             }
             router.push("/(tabs)/my-competitions");
           }}

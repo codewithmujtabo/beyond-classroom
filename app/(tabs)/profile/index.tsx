@@ -2,54 +2,63 @@ import { Brand } from "@/constants/theme";
 import { useUser } from "@/context/AuthContext";
 import { router } from "expo-router";
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ProfileScreen() {
-  const { user } = useUser();
+  const { user, registrations } = useUser();
   const insets = useSafeAreaInsets();
 
-  const roleLabel = {
-    student: "Student",
-    parent: "Parent",
-    teacher: "Teacher",
-  }[user?.role ?? "student"];
+  const fullName = (user as any)?.fullName ?? (user as any)?.name ?? "—";
+  const initial = fullName.charAt(0).toUpperCase();
+
+  const roleLabel: Record<string, string> = {
+    student: "Siswa",
+    parent: "Orang Tua",
+    teacher: "Guru",
+  };
+  const roleMeta: Record<string, string> = {
+    student: "👨‍🎓",
+    parent: "👨‍👩‍👧",
+    teacher: "👨‍🏫",
+  };
+  const role = (user as any)?.role ?? "student";
+  const roleDisplay = roleLabel[role] ?? role;
+  const roleIcon = roleMeta[role] ?? "👤";
+
+  const totalComps = registrations.length;
+  const completed = registrations.filter((r) => r.status === "completed").length;
+  const active = registrations.filter((r) => r.status === "paid").length;
 
   const menuItems = [
     {
       emoji: "👤",
-      label: "Complete Profile",
-      onPress: () =>
-        router.push(
-          "/(tabs)/profile/setup",
-        ),
+      label: "Edit Profil",
+      onPress: () => router.push("/(tabs)/profile/edit"),
     },
     {
       emoji: "📄",
-      label: "Document Vault",
-      onPress: () =>
-        router.push(
-          "/(tabs)/profile/document-vault",
-        ),
+      label: "Brankas Dokumen",
+      onPress: () => router.push("/(tabs)/profile/document-vault"),
     },
     {
       emoji: "🔔",
-      label: "Notifications",
+      label: "Notifikasi",
       onPress: () => {},
     },
     {
       emoji: "⚙️",
-      label: "Account Settings",
+      label: "Pengaturan Akun",
       onPress: () => {},
     },
     {
       emoji: "❓",
-      label: "Help & FAQ",
+      label: "Bantuan & FAQ",
       onPress: () => {},
     },
   ];
@@ -61,66 +70,50 @@ export default function ProfileScreen() {
         paddingTop: insets.top + 16,
         paddingBottom: 40,
       }}
-      showsVerticalScrollIndicator={
-        false
-      }
+      showsVerticalScrollIndicator={false}
     >
       {/* Avatar card */}
       <View style={styles.avatarCard}>
-        <View style={styles.avatar}>
-          <Text
-            style={styles.avatarInitial}
-          >
-            {user?.name
-              ?.charAt(0)
-              .toUpperCase() ?? "?"}
-          </Text>
+        {/* Avatar with ring */}
+        <View style={styles.avatarRing}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarInitial}>{initial}</Text>
+          </View>
         </View>
-        <Text style={styles.name}>
-          {user?.name ?? "—"}
-        </Text>
+
+        <Text style={styles.name}>{fullName}</Text>
+
         <View style={styles.roleBadge}>
-          <Text
-            style={styles.roleBadgeText}
-          >
-            {roleLabel}
+          <Text style={styles.roleBadgeText}>
+            {roleIcon} {roleDisplay}
           </Text>
         </View>
-        <Text style={styles.meta}>
-          {user?.school} · {user?.city}
-        </Text>
+
+        {((user as any)?.city || (user as any)?.school) && (
+          <Text style={styles.meta}>
+            {[(user as any)?.school, (user as any)?.city]
+              .filter(Boolean)
+              .join(" · ")}
+          </Text>
+        )}
       </View>
 
-      {/* Stats row */}
+      {/* Live stats row */}
       <View style={styles.statsRow}>
         {[
-          {
-            label: "Competitions",
-            value: "0",
-          },
-          {
-            label: "Certificates",
-            value: "0",
-          },
-          {
-            label: "Points",
-            value: "0",
-          },
-        ].map((s) => (
+          { label: "Total Lomba", value: String(totalComps) },
+          { label: "Aktif", value: String(active) },
+          { label: "Selesai", value: String(completed) },
+        ].map((s, i) => (
           <View
             key={s.label}
-            style={styles.statItem}
+            style={[
+              styles.statItem,
+              i < 2 && styles.statItemBorder,
+            ]}
           >
-            <Text
-              style={styles.statValue}
-            >
-              {s.value}
-            </Text>
-            <Text
-              style={styles.statLabel}
-            >
-              {s.label}
-            </Text>
+            <Text style={styles.statValue}>{s.value}</Text>
+            <Text style={styles.statLabel}>{s.label}</Text>
           </View>
         ))}
       </View>
@@ -132,28 +125,16 @@ export default function ProfileScreen() {
             key={item.label}
             style={[
               styles.menuItem,
-              i <
-                menuItems.length - 1 &&
-                styles.menuItemBorder,
+              i < menuItems.length - 1 && styles.menuItemBorder,
             ]}
             onPress={item.onPress}
             activeOpacity={0.7}
           >
-            <Text
-              style={styles.menuEmoji}
-            >
-              {item.emoji}
-            </Text>
-            <Text
-              style={styles.menuLabel}
-            >
-              {item.label}
-            </Text>
-            <Text
-              style={styles.menuChevron}
-            >
-              ›
-            </Text>
+            <View style={styles.menuIconWrap}>
+              <Text style={styles.menuEmoji}>{item.emoji}</Text>
+            </View>
+            <Text style={styles.menuLabel}>{item.label}</Text>
+            <Text style={styles.menuChevron}>›</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -161,18 +142,10 @@ export default function ProfileScreen() {
       {/* Sign out */}
       <TouchableOpacity
         style={styles.signOutBtn}
-        onPress={() =>
-          router.replace(
-            "/(auth)/login" as any,
-          )
-        }
+        onPress={() => router.replace("/(auth)/login" as any)}
         activeOpacity={0.8}
       >
-        <Text
-          style={styles.signOutText}
-        >
-          Sign Out
-        </Text>
+        <Text style={styles.signOutText}>🚪 Keluar</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -184,99 +157,90 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
     paddingHorizontal: 20,
   },
+
+  // Avatar card
   avatarCard: {
     alignItems: "center",
     backgroundColor: "#fff",
-    borderRadius: 20,
-    paddingVertical: 28,
+    borderRadius: 24,
+    paddingVertical: 32,
     paddingHorizontal: 20,
+    marginBottom: 14,
+    shadowColor: Brand.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  avatarRing: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: Brand.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
+    padding: 3,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     backgroundColor: Brand.primary,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
   },
-  avatarInitial: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#fff",
-  },
+  avatarInitial: { fontSize: 36, fontWeight: "800", color: "#fff" },
   name: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "800",
     color: "#0F172A",
     marginBottom: 8,
+    textAlign: "center",
   },
   roleBadge: {
     backgroundColor: "#EEF2FF",
     borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 5,
     marginBottom: 8,
   },
-  roleBadgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: Brand.primary,
-  },
-  meta: {
-    fontSize: 13,
-    color: "#94A3B8",
-  },
+  roleBadgeText: { fontSize: 13, fontWeight: "700", color: Brand.primary },
+  meta: { fontSize: 13, color: "#94A3B8", textAlign: "center" },
+
+  // Stats row
   statsRow: {
     flexDirection: "row",
     backgroundColor: "#fff",
-    borderRadius: 16,
-    paddingVertical: 16,
-    marginBottom: 16,
+    borderRadius: 18,
+    paddingVertical: 18,
+    marginBottom: 14,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
   },
-  statItem: {
-    flex: 1,
-    alignItems: "center",
+  statItem: { flex: 1, alignItems: "center" },
+  statItemBorder: {
     borderRightWidth: 1,
     borderRightColor: "#F1F5F9",
   },
   statValue: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "800",
     color: Brand.primary,
-    marginBottom: 2,
+    marginBottom: 3,
   },
-  statLabel: {
-    fontSize: 11,
-    color: "#94A3B8",
-    fontWeight: "600",
-  },
+  statLabel: { fontSize: 11, color: "#94A3B8", fontWeight: "600" },
+
+  // Menu card
   menuCard: {
     backgroundColor: "#fff",
-    borderRadius: 16,
-    marginBottom: 16,
+    borderRadius: 18,
+    marginBottom: 14,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
@@ -289,34 +253,25 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     gap: 12,
   },
-  menuItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#F8FAFC",
+  menuItemBorder: { borderBottomWidth: 1, borderBottomColor: "#F8FAFC" },
+  menuIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#F8FAFC",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  menuEmoji: {
-    fontSize: 20,
-    width: 28,
-  },
-  menuLabel: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#0F172A",
-  },
-  menuChevron: {
-    fontSize: 22,
-    color: "#CBD5E1",
-    fontWeight: "300",
-  },
+  menuEmoji: { fontSize: 18 },
+  menuLabel: { flex: 1, fontSize: 15, fontWeight: "600", color: "#0F172A" },
+  menuChevron: { fontSize: 22, color: "#CBD5E1", fontWeight: "300" },
+
+  // Sign out
   signOutBtn: {
     backgroundColor: "#FEF2F2",
     borderRadius: 14,
     paddingVertical: 15,
     alignItems: "center",
   },
-  signOutText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#EF4444",
-  },
+  signOutText: { fontSize: 15, fontWeight: "700", color: "#EF4444" },
 });
