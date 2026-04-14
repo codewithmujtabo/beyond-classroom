@@ -175,7 +175,7 @@ export default function RegisterScreen() {
   const handleCreateAccount =
     async () => {
       if (!consentChecked) {
-        Alert.alert("Persetujuan Diperlukan", "Kamu harus menyetujui kebijakan privasi untuk melanjutkan.");
+        Alert.alert("Consent Required", "You must agree to the privacy policy to continue.");
         return;
       }
 
@@ -397,35 +397,35 @@ export default function RegisterScreen() {
           <View style={{ alignItems: "center", marginBottom: 24 }}>
             <Text style={{ fontSize: 48, marginBottom: 12 }}>🔐</Text>
             <Text style={[styles.stepTitle, { textAlign: "center" }]}>
-              Kebijakan Privasi
+              Privacy Policy
             </Text>
             <Text style={{ color: "#64748B", textAlign: "center", marginTop: 8, lineHeight: 20 }}>
-              Sebelum membuat akun, baca dan setujui ketentuan berikut.
+              Before creating an account, please read and agree to the following terms.
             </Text>
           </View>
 
           <View style={styles.consentBox}>
-            <Text style={styles.consentTitle}>Data yang kami kumpulkan</Text>
+            <Text style={styles.consentTitle}>Data we collect</Text>
             <Text style={styles.consentBody}>
-              • Profil & identitas (nama, email, nomor HP, kota){"\n"}
-              • Data pendidikan (sekolah, kelas, nilai — untuk orang tua/guru){"\n"}
-              • Dokumen yang kamu unggah (rapor, sertifikat, foto){"\n"}
-              • Aktivitas penggunaan aplikasi (kompetisi yang dilihat & didaftar)
+              • Profile & identity (name, email, phone number, city){"\n"}
+              • Education data (school, grade, scores — for parents/teachers){"\n"}
+              • Documents you upload (report cards, certificates, photos){"\n"}
+              • App usage activity (competitions viewed & registered)
             </Text>
 
-            <Text style={[styles.consentTitle, { marginTop: 16 }]}>Bagaimana data digunakan</Text>
+            <Text style={[styles.consentTitle, { marginTop: 16 }]}>How data is used</Text>
             <Text style={styles.consentBody}>
-              • Menampilkan kompetisi yang relevan untukmu{"\n"}
-              • Memproses pendaftaran & pembayaran kompetisi{"\n"}
-              • Mengirimkan notifikasi penting terkait kompetisi{"\n"}
-              • Meningkatkan kualitas layanan Beyond Classroom
+              • Display relevant competitions for you{"\n"}
+              • Process competition registrations & payments{"\n"}
+              • Send important notifications related to competitions{"\n"}
+              • Improve the quality of Beyond Classroom services
             </Text>
 
-            <Text style={[styles.consentTitle, { marginTop: 16 }]}>Keamanan data</Text>
+            <Text style={[styles.consentTitle, { marginTop: 16 }]}>Data security</Text>
             <Text style={styles.consentBody}>
-              Data kamu disimpan secara aman dan tidak dijual ke pihak ketiga.
-              Sesuai UU PDP (UU No. 27 Tahun 2022), kamu dapat meminta penghapusan
-              data dengan menghubungi tim kami.
+              Your data is stored securely and is not sold to third parties.
+              In accordance with the Personal Data Protection Law (Law No. 27 of 2022),
+              you can request data deletion by contacting our team.
             </Text>
           </View>
 
@@ -438,14 +438,14 @@ export default function RegisterScreen() {
               {consentChecked && <Text style={{ color: "#fff", fontWeight: "800" }}>✓</Text>}
             </View>
             <Text style={styles.checkLabel}>
-              Saya telah membaca dan menyetujui{" "}
+              I have read and agree to the{" "}
               <Text
                 style={{ color: Brand.primary, textDecorationLine: "underline" }}
                 onPress={() => Linking.openURL("https://beyondclassroom.id/privacy")}
               >
-                Kebijakan Privasi
+                Privacy Policy
               </Text>{" "}
-              Beyond Classroom.
+              of Beyond Classroom.
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -467,7 +467,7 @@ export default function RegisterScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.registerBtnText}>Buat Akun</Text>
+              <Text style={styles.registerBtnText}>Create Account</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -789,7 +789,7 @@ export default function RegisterScreen() {
           disabled={loading}
           activeOpacity={0.8}
         >
-          <Text style={styles.registerBtnText}>Lanjutkan</Text>
+          <Text style={styles.registerBtnText}>Continue</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

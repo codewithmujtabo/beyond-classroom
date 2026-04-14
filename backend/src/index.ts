@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/node";
 import express from "express";
 import cors from "cors";
+import path from "path";
 import { env } from "./config/env";
 
 Sentry.init({
@@ -21,6 +22,9 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Serve uploaded files — /uploads/<userId>/<filename>
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Health check
 app.get("/api/health", (_req, res) => {

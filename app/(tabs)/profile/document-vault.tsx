@@ -1,21 +1,20 @@
-import * as authService from "@/services/auth.service";
-import * as documentService from "@/services/document.service";
 import { Brand } from "@/constants/theme";
+import { useUser } from "@/context/AuthContext";
+import * as documentService from "@/services/document.service";
+import * as TokenService from "@/services/token.service";
+import { API_BASE_URL } from "@/config/api";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import React, {
-    useEffect,
-    useState,
-} from "react";
+import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -28,306 +27,223 @@ interface Document {
 }
 
 const DOC_TYPES = [
-  {
-    id: "id_card",
-    label: "ID Card",
-    icon: "🪪",
-  },
-  {
-    id: "report_card",
-    label: "Report Card",
-    icon: "📄",
-  },
-  {
-    id: "recommendation",
-    label: "Recommendation Letter",
-    icon: "💌",
-  },
-  {
-    id: "certificate",
-    label: "Certificate",
-    icon: "🏆",
-  },
-  {
-    id: "other",
-    label: "Other Document",
-    icon: "📎",
-  },
+  { id: "id_card",        label: "ID Card",               icon: "🪪" },
+  { id: "report_card",    label: "Report Card",           icon: "📄" },
+  { id: "recommendation", label: "Recommendation Letter", icon: "💌" },
+  { id: "certificate",   label: "Certificate",            icon: "🏆" },
+  { id: "other",          label: "Other Documents",       icon: "📎" },
 ];
 
+function formatFileSize(bytes: number) {
+  if (!bytes) return "—";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getDocMeta(docType: string) {
+  return DOC_TYPES.find((t) => t.id === docType) ?? { label: docType, icon: "📎" };
+}
+
+// ── Real XHR upload with progress ─────────────────────────────────────────────
+async function uploadFileXHR(
+  uri: string,
+  name: string,
+  mimeType: string,
+  docType: string,
+  onProgress: (pct: number) => void
+): Promise<void> {
+  const token = await TokenService.getToken();
+
+  const formData = new FormData();
+  formData.append("file", { uri, name, type: mimeType } as any);
+  formData.append("docType", docType);
+
+  // Strip /api suffix so the path becomes <host>/documents/upload
+  const baseUrl = API_BASE_URL!.replace(/\/api$/, "");
+
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        try {
+          const body = JSON.parse(xhr.responseText);
+          reject(new Error(body.message || `Upload failed (${xhr.status})`));
+        } catch {
+          reject(new Error(`Upload failed (${xhr.status})`));
+        }
+      }
+    };
+
+    xhr.onerror = () => reject(new Error("Network error — check your connection"));
+
+    xhr.open("POST", `${baseUrl}/api/documents/upload`);
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.send(formData);
+  });
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
 export default function DocumentVaultScreen() {
   const insets = useSafeAreaInsets();
-  const [documents, setDocuments] =
-    useState<Document[]>([]);
-  const [loading, setLoading] =
-    useState(true);
-  const [uploading, setUploading] =
-    useState(false);
-  const [userId, setUserId] = useState<
-    string | null
-  >(null);
+  const { user } = useUser();
+
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   useEffect(() => {
-    initializeUser();
+    fetchDocuments();
   }, []);
-
-  const initializeUser = async () => {
-    try {
-      const userData = await authService.getMe();
-      if (userData?.id) {
-        setUserId(userData.id);
-        await fetchDocuments();
-      }
-    } catch (err) {
-      console.error(
-        "Error initializing user:",
-        err,
-      );
-      Alert.alert(
-        "Error",
-        "Failed to load documents",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchDocuments = async () => {
     try {
       const data = await documentService.list();
       setDocuments(
         data.map((d) => ({
-          id: d.id,
-          doc_type: d.docType,
-          file_name: d.fileName,
-          file_size: d.fileSize,
+          id:          d.id,
+          doc_type:    d.docType,
+          file_name:   d.fileName,
+          file_size:   d.fileSize,
           uploaded_at: d.uploadedAt,
-        })),
+        }))
       );
     } catch (err) {
-      console.error(
-        "Error fetching documents:",
-        err,
-      );
+      console.error("Error fetching documents:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handlePickDocument =
-    async () => {
-      try {
-        const result =
-          await DocumentPicker.getDocumentAsync(
-            {
-              type: [
-                "application/pdf",
-                "image/*",
-              ],
-            },
-          );
-
-        if (
-          !result.canceled &&
-          result.assets[0]
-        ) {
-          showDocTypeSelector(
-            result.assets[0],
-          );
-        }
-      } catch (err) {
-        Alert.alert(
-          "Error",
-          "Failed to pick document",
-        );
-        console.error(err);
+  // ── File pickers ──────────────────────────────────────────────────────────
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "image/*"],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        showDocTypeSelector({
+          uri:      asset.uri,
+          name:     asset.name ?? `doc_${Date.now()}`,
+          mimeType: asset.mimeType ?? "application/octet-stream",
+        });
       }
-    };
+    } catch {
+      Alert.alert("Error", "Failed to open document");
+    }
+  };
 
   const handlePickImage = async () => {
     try {
-      const result =
-        await ImagePicker.launchImageLibraryAsync(
-          {
-            mediaTypes:
-              ImagePicker
-                .MediaTypeOptions
-                .Images,
-            allowsEditing: true,
-            aspect: [4, 3],
-            quality: 0.8,
-          },
-        );
-
-      if (
-        !result.canceled &&
-        result.assets[0]
-      ) {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
         showDocTypeSelector({
-          uri: result.assets[0].uri,
-          name: `photo_${Date.now()}.jpg`,
-          size:
-            result.assets[0].width || 0,
+          uri:      asset.uri,
+          name:     `foto_${Date.now()}.jpg`,
+          mimeType: "image/jpeg",
         });
       }
-    } catch (err) {
-      Alert.alert(
-        "Error",
-        "Failed to pick image",
-      );
-      console.error(err);
+    } catch {
+      Alert.alert("Error", "Failed to open gallery");
     }
   };
 
-  const showDocTypeSelector = (
-    fileAsset: any,
-  ) => {
+  const handleCamera = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Required", "Please allow camera access in settings.");
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        showDocTypeSelector({
+          uri:      asset.uri,
+          name:     `kamera_${Date.now()}.jpg`,
+          mimeType: "image/jpeg",
+        });
+      }
+    } catch {
+      Alert.alert("Error", "Failed to open camera");
+    }
+  };
+
+  // ── Doc type selector → upload ─────────────────────────────────────────────
+  const showDocTypeSelector = (file: { uri: string; name: string; mimeType: string }) => {
     Alert.alert(
-      "Select Document Type",
+      "Document Type",
       "What type of document is this?",
-      DOC_TYPES.map((type) => ({
-        text: type.label,
-        onPress: () =>
-          uploadDocument(
-            fileAsset,
-            type.id,
-          ),
-      })),
-      { cancelable: true },
+      [
+        ...DOC_TYPES.map((t) => ({
+          text: `${t.icon} ${t.label}`,
+          onPress: () => uploadDocument(file, t.id),
+        })),
+        { text: "Cancel", style: "cancel" as const },
+      ]
     );
   };
 
   const uploadDocument = async (
-    fileAsset: any,
-    docType: string,
+    file: { uri: string; name: string; mimeType: string },
+    docType: string
   ) => {
-    if (!userId) {
-      Alert.alert(
-        "Error",
-        "User not found",
-      );
-      return;
-    }
-
     setUploading(true);
+    setUploadProgress(0);
     try {
-      const fileName =
-        fileAsset.name ||
-        `${docType}_${Date.now()}`;
-      const fileSize =
-        fileAsset.size || 0;
-
-      // In production, upload to your own file storage (S3, etc.)
-      const fileUrl = `https://storage.example.com/${userId}/${fileName}`;
-
-      await documentService.create({
-        docType,
-        fileName,
-        fileSize,
-        fileUrl,
-      });
-
-      Alert.alert(
-        "Success",
-        "Document uploaded!",
-      );
+      await uploadFileXHR(file.uri, file.name, file.mimeType, docType, setUploadProgress);
       await fetchDocuments();
-    } catch (err) {
-      Alert.alert(
-        "Error",
-        "Failed to upload document",
-      );
-      console.error(err);
+      Alert.alert("✅ Success", "Document uploaded successfully!");
+    } catch (err: any) {
+      Alert.alert("Failed", err?.message || "Failed to upload document. Please try again.");
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
-  const handleDeleteDocument = async (
-    docId: string,
-  ) => {
+  // ── Delete ─────────────────────────────────────────────────────────────────
+  const handleDelete = (docId: string, fileName: string) => {
     Alert.alert(
       "Delete Document",
-      "Are you sure you want to delete this document?",
+      `Delete "${fileName}"? This action cannot be undone.`,
       [
-        {
-          text: "Cancel",
-          onPress: () => {},
-        },
+        { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
+          style: "destructive",
           onPress: async () => {
             try {
               await documentService.remove(docId);
-
-              Alert.alert(
-                "Success",
-                "Document deleted",
-              );
-              await fetchDocuments();
-            } catch (err) {
-              Alert.alert(
-                "Error",
-                "Failed to delete document",
-              );
-              console.error(err);
+              setDocuments((prev) => prev.filter((d) => d.id !== docId));
+            } catch {
+              Alert.alert("Error", "Failed to delete document");
             }
           },
-          style: "destructive",
         },
-      ],
+      ]
     );
   };
 
-  const getDocTypeLabel = (
-    docType: string,
-  ) => {
-    return (
-      DOC_TYPES.find(
-        (t) => t.id === docType,
-      )?.label || docType
-    );
-  };
-
-  const getDocTypeIcon = (
-    docType: string,
-  ) => {
-    return (
-      DOC_TYPES.find(
-        (t) => t.id === docType,
-      )?.icon || "📎"
-    );
-  };
-
-  const formatFileSize = (
-    bytes: number,
-  ) => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB"];
-    const i = Math.floor(
-      Math.log(bytes) / Math.log(k),
-    );
-    return (
-      Math.round(
-        (bytes / Math.pow(k, i)) * 100,
-      ) /
-        100 +
-      " " +
-      sizes[i]
-    );
-  };
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <View
-        style={[
-          styles.container,
-          { justifyContent: "center" },
-        ]}
-      >
-        <ActivityIndicator
-          size="large"
-          color={Brand.primary}
-        />
+      <View style={[styles.center, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Brand.primary} />
       </View>
     );
   }
@@ -336,219 +252,107 @@ export default function DocumentVaultScreen() {
     <ScrollView
       contentContainerStyle={[
         styles.container,
-        {
-          paddingTop: insets.top + 20,
-          paddingBottom:
-            insets.bottom + 24,
-        },
+        { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 32 },
       ]}
+      showsVerticalScrollIndicator={false}
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>
-          Document Vault
-        </Text>
+        <Text style={styles.title}>Document Vault 🗄️</Text>
         <Text style={styles.subtitle}>
-          Store documents you'll need
-          for competition registrations
+          Store your important documents here to make competition registration easier.
         </Text>
       </View>
 
-      {/* Upload Options */}
-      <View
-        style={styles.uploadSection}
-      >
-        <Text
-          style={styles.sectionTitle}
-        >
-          Add New Document
-        </Text>
-        <View
-          style={styles.uploadButtons}
-        >
+      {/* Upload buttons */}
+      <Text style={styles.sectionLabel}>Add Document</Text>
+      <View style={styles.uploadRow}>
+        {[
+          { emoji: "📄", label: "File / PDF",     onPress: handlePickDocument },
+          { emoji: "🖼️",  label: "From Gallery",  onPress: handlePickImage },
+          { emoji: "📸",  label: "Camera",        onPress: handleCamera },
+        ].map((btn) => (
           <TouchableOpacity
-            style={styles.uploadButton}
-            onPress={handlePickDocument}
+            key={btn.label}
+            style={[styles.uploadBtn, uploading && { opacity: 0.5 }]}
+            onPress={btn.onPress}
             disabled={uploading}
+            activeOpacity={0.8}
           >
-            <Text
-              style={
-                styles.uploadButtonEmoji
-              }
-            >
-              📄
-            </Text>
-            <Text
-              style={
-                styles.uploadButtonText
-              }
-            >
-              Upload File
-            </Text>
+            <Text style={styles.uploadBtnEmoji}>{btn.emoji}</Text>
+            <Text style={styles.uploadBtnLabel}>{btn.label}</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.uploadButton}
-            onPress={handlePickImage}
-            disabled={uploading}
-          >
-            <Text
-              style={
-                styles.uploadButtonEmoji
-              }
-            >
-              📸
-            </Text>
-            <Text
-              style={
-                styles.uploadButtonText
-              }
-            >
-              Take Photo
-            </Text>
-          </TouchableOpacity>
-        </View>
+        ))}
       </View>
 
-      {/* Documents List */}
-      <View
-        style={styles.documentsSection}
-      >
-        <Text
-          style={styles.sectionTitle}
-        >
-          Your Documents (
-          {documents.length})
-        </Text>
-
-        {documents.length === 0 ? (
-          <View
-            style={styles.emptyState}
-          >
-            <Text
-              style={
-                styles.emptyStateEmoji
-              }
-            >
-              📭
-            </Text>
-            <Text
-              style={
-                styles.emptyStateText
-              }
-            >
-              No documents yet
-            </Text>
-            <Text
-              style={
-                styles.emptyStateSubtext
-              }
-            >
-              Upload documents to your
-              vault for easy
-              registration
-            </Text>
+      {/* Upload progress */}
+      {uploading && (
+        <View style={styles.progressCard}>
+          <Text style={styles.progressLabel}>
+            Mengunggah... {uploadProgress}%
+          </Text>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${uploadProgress}%` }]} />
           </View>
-        ) : (
-          <FlatList
-            data={documents}
-            keyExtractor={(item) =>
-              item.id
-            }
-            scrollEnabled={false}
-            renderItem={({ item }) => (
-              <View
-                style={
-                  styles.documentCard
-                }
-              >
-                <View
-                  style={
-                    styles.documentIcon
-                  }
-                >
-                  <Text
-                    style={
-                      styles.documentIconEmoji
-                    }
-                  >
-                    {getDocTypeIcon(
-                      item.doc_type,
-                    )}
-                  </Text>
-                </View>
+        </View>
+      )}
 
-                <View
-                  style={
-                    styles.documentInfo
-                  }
-                >
-                  <Text
-                    style={
-                      styles.documentType
-                    }
-                  >
-                    {getDocTypeLabel(
-                      item.doc_type,
-                    )}
-                  </Text>
-                  <Text
-                    style={
-                      styles.documentName
-                    }
-                  >
+      {/* Document list */}
+      <Text style={[styles.sectionLabel, { marginTop: 24 }]}>
+        My Documents ({documents.length})
+      </Text>
+
+      {documents.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>📭</Text>
+          <Text style={styles.emptyTitle}>No documents yet</Text>
+          <Text style={styles.emptySubtext}>
+            Upload documents like report cards, ID, or certificates to speed up registration.
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={documents}
+          keyExtractor={(d) => d.id}
+          scrollEnabled={false}
+          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          renderItem={({ item }) => {
+            const meta = getDocMeta(item.doc_type);
+            return (
+              <View style={styles.docCard}>
+                <View style={styles.docIcon}>
+                  <Text style={{ fontSize: 24 }}>{meta.icon}</Text>
+                </View>
+                <View style={styles.docInfo}>
+                  <Text style={styles.docType}>{meta.label}</Text>
+                  <Text style={styles.docName} numberOfLines={1}>
                     {item.file_name}
                   </Text>
-                  <Text
-                    style={
-                      styles.documentMeta
-                    }
-                  >
-                    {formatFileSize(
-                      item.file_size,
-                    )}{" "}
-                    •{" "}
-                    {new Date(
-                      item.uploaded_at,
-                    ).toLocaleDateString()}
+                  <Text style={styles.docMeta}>
+                    {formatFileSize(item.file_size)} ·{" "}
+                    {new Date(item.uploaded_at).toLocaleDateString("id-ID", {
+                      day: "numeric", month: "short", year: "numeric",
+                    })}
                   </Text>
                 </View>
-
                 <TouchableOpacity
-                  style={
-                    styles.deleteButton
-                  }
-                  onPress={() =>
-                    handleDeleteDocument(
-                      item.id,
-                    )
-                  }
+                  style={styles.deleteBtn}
+                  onPress={() => handleDelete(item.id, item.file_name)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text
-                    style={
-                      styles.deleteButtonText
-                    }
-                  >
-                    ✕
-                  </Text>
+                  <Text style={styles.deleteBtnText}>✕</Text>
                 </TouchableOpacity>
               </View>
-            )}
-          />
-        )}
-      </View>
+            );
+          }}
+        />
+      )}
 
-      {/* Info */}
+      {/* Info box */}
       <View style={styles.infoBox}>
-        <Text style={styles.infoEmoji}>
-          💡
-        </Text>
+        <Text style={styles.infoEmoji}>🔒</Text>
         <Text style={styles.infoText}>
-          Accepted formats: PDF, JPG,
-          PNG (max 10MB each). Documents
-          are encrypted and only visible
-          to you and organizers you
-          register with.
+          Accepted formats: PDF, JPG, PNG (max. 10 MB). Your documents are secure and can only be viewed by you and the competition organizers you register with.
         </Text>
       </View>
     </ScrollView>
@@ -556,149 +360,123 @@ export default function DocumentVaultScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-  },
-  header: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 24,
+  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F8FAFC" },
+  container: { paddingHorizontal: 20, backgroundColor: "#F8FAFC" },
+
+  header: { marginBottom: 24 },
+  title: { fontSize: 24, fontWeight: "800", color: "#0F172A", marginBottom: 6 },
+  subtitle: { fontSize: 14, color: "#64748B", lineHeight: 20 },
+
+  sectionLabel: {
+    fontSize: 13,
     fontWeight: "700",
-    color: "#1a1a1a",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#666",
-    lineHeight: 20,
-  },
-  uploadSection: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1a1a1a",
+    color: "#64748B",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
     marginBottom: 12,
   },
-  uploadButtons: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  uploadButton: {
+
+  // Upload buttons
+  uploadRow: { flexDirection: "row", gap: 10 },
+  uploadBtn: {
     flex: 1,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 2,
+    paddingVertical: 18,
+    borderRadius: 14,
+    borderWidth: 1.5,
     borderColor: Brand.primary,
     borderStyle: "dashed",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
+    backgroundColor: "#EEF2FF",
   },
-  uploadButtonEmoji: {
-    fontSize: 32,
+  uploadBtnEmoji: { fontSize: 26 },
+  uploadBtnLabel: { fontSize: 11, fontWeight: "700", color: Brand.primary, textAlign: "center" },
+
+  // Progress
+  progressCard: {
+    marginTop: 14,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  uploadButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: Brand.primary,
-    textAlign: "center",
+  progressLabel: { fontSize: 13, color: "#475569", fontWeight: "600", marginBottom: 8 },
+  progressTrack: {
+    height: 8,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 4,
+    overflow: "hidden",
   },
-  documentsSection: {
-    marginBottom: 24,
+  progressFill: {
+    height: 8,
+    backgroundColor: Brand.primary,
+    borderRadius: 4,
   },
+
+  // Empty state
   emptyState: {
     alignItems: "center",
-    paddingVertical: 32,
+    paddingVertical: 40,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "#E2E8F0",
+    borderStyle: "dashed",
   },
-  emptyStateEmoji: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyStateText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1a1a1a",
-    marginBottom: 4,
-  },
-  emptyStateSubtext: {
-    fontSize: 13,
-    color: "#999",
-    textAlign: "center",
-  },
-  documentCard: {
+  emptyEmoji: { fontSize: 48, marginBottom: 12 },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: "#0F172A", marginBottom: 8 },
+  emptySubtext: { fontSize: 13, color: "#94A3B8", textAlign: "center", lineHeight: 20, paddingHorizontal: 24 },
+
+  // Document card
+  docCard: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: "#f9f9f9",
-    borderRadius: 12,
-    marginBottom: 12,
-    gap: 12,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  documentIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor:
-      Brand.primary + "20",
+  docIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#EEF2FF",
     justifyContent: "center",
     alignItems: "center",
+    marginRight: 12,
   },
-  documentIconEmoji: {
-    fontSize: 24,
-  },
-  documentInfo: {
-    flex: 1,
-  },
-  documentType: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: Brand.primary,
-    marginBottom: 4,
-  },
-  documentName: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "#1a1a1a",
-    marginBottom: 2,
-  },
-  documentMeta: {
-    fontSize: 11,
-    color: "#999",
-  },
-  deleteButton: {
+  docInfo: { flex: 1 },
+  docType: { fontSize: 12, fontWeight: "700", color: Brand.primary, marginBottom: 2 },
+  docName: { fontSize: 14, fontWeight: "600", color: "#0F172A", marginBottom: 2 },
+  docMeta: { fontSize: 11, color: "#94A3B8" },
+  deleteBtn: {
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: "#ffebee",
+    backgroundColor: "#FEF2F2",
     justifyContent: "center",
     alignItems: "center",
   },
-  deleteButtonText: {
-    fontSize: 16,
-    color: "#d32f2f",
-    fontWeight: "600",
-  },
+  deleteBtnText: { fontSize: 14, color: "#EF4444", fontWeight: "700" },
+
+  // Info box
   infoBox: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: "#f0f7ff",
-    borderRadius: 8,
+    marginTop: 20,
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
+    backgroundColor: "#EFF6FF",
+    borderRadius: 12,
+    padding: 14,
     alignItems: "flex-start",
   },
-  infoEmoji: {
-    fontSize: 16,
-  },
-  infoText: {
-    fontSize: 12,
-    color: "#1976d2",
-    lineHeight: 16,
-    flex: 1,
-  },
+  infoEmoji: { fontSize: 16 },
+  infoText: { flex: 1, fontSize: 12, color: "#1D4ED8", lineHeight: 18 },
 });

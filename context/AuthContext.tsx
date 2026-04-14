@@ -305,7 +305,7 @@ function mapProfile(data: any): AppUser {
     name: data.fullName || "",
     email: data.email || "",
     phone: data.phone || "",
-    school: data.school || "",
+    school: data.schoolName || data.school || "",
     level: data.grade as "SD" | "SMP" | "SMA" | undefined,
     city: data.city || "",
     role: (data.role as "student" | "parent" | "teacher") || "student",
@@ -314,5 +314,34 @@ function mapProfile(data: any): AppUser {
     childName: data.childName,
     childSchool: data.childSchool,
     childLevel: data.childGrade as "SD" | "SMP" | "SMA" | undefined,
+
+    // ── Sprint 2: Enhanced profile fields ─────────────────────────────────────
+    fullName: data.fullName,
+    dateOfBirth: data.dateOfBirth,
+    interests: data.interests,
+    referralSource: data.referralSource,
+    studentCardUrl: data.studentCardUrl,
+    nisn: data.nisn,
+    // School details
+    schoolName: data.schoolName,
+    npsn: data.npsn,
+    schoolAddress: data.schoolAddress,
+    schoolEmail: data.schoolEmail,
+    schoolWhatsapp: data.schoolWhatsapp,
+    schoolPhone: data.schoolPhone,
+    // Supervisor details
+    supervisorName: data.supervisorName,
+    supervisorEmail: data.supervisorEmail,
+    supervisorWhatsapp: data.supervisorWhatsapp,
+    supervisorPhone: data.supervisorPhone,
+    supervisorSchoolId: data.supervisorSchoolId,
+    supervisorLinked: data.supervisorLinked,
+    // Parent details
+    parentName: data.parentName,
+    parentOccupation: data.parentOccupation,
+    parentWhatsapp: data.parentWhatsapp,
+    parentPhone: data.parentPhone,
+    parentSchoolId: data.parentSchoolId,
+    parentLinked: data.parentLinked,
   };
 }

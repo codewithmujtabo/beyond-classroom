@@ -8,6 +8,8 @@ const snap = new midtransClient.Snap({
   clientKey: env.MIDTRANS_CLIENT_KEY,
 });
 
+const DEEP_LINK_BASE = "beyondclassroom://payment";
+
 export interface SnapTokenResult {
   snapToken: string;
   redirectUrl: string;
@@ -15,11 +17,11 @@ export interface SnapTokenResult {
 
 /**
  * Create a Midtrans Snap transaction token for a registration.
- * Sprint 1: skeleton only — no webhook handling yet (Sprint 2).
+ * Callbacks redirect back to the app via the beyondclassroom:// scheme.
  */
 export async function createSnapToken(params: {
-  orderId: string;       // Must be unique per transaction — use registration id
-  amount: number;        // In IDR (integer)
+  orderId: string;
+  amount: number;
   customerName: string;
   customerEmail: string;
   competitionName: string;
@@ -38,12 +40,17 @@ export async function createSnapToken(params: {
         id: params.orderId,
         price: params.amount,
         quantity: 1,
-        name: params.competitionName.slice(0, 50), // Midtrans max 50 chars
+        name: params.competitionName.slice(0, 50),
       },
     ],
     customer_details: {
       first_name: params.customerName,
       email: params.customerEmail,
+    },
+    callbacks: {
+      finish:  `${DEEP_LINK_BASE}/finish`,
+      error:   `${DEEP_LINK_BASE}/error`,
+      pending: `${DEEP_LINK_BASE}/pending`,
     },
   };
 

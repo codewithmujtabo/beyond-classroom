@@ -35,6 +35,7 @@ function RootLayout() {
             <Stack.Screen name="(auth)/login" />
             <Stack.Screen name="(auth)/register" />
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="(payment)" options={{ presentation: "modal" }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>
