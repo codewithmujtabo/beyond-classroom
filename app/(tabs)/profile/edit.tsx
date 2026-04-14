@@ -4,7 +4,7 @@ import { useUser } from "@/context/AuthContext";
 import * as usersService from "@/services/users.service";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +19,33 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+// Helper to format date from ISO/backend format to display format
+function formatDateForDisplay(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "";
+    // Format as DD/MM/YYYY
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return "";
+  }
+}
+
+// Helper to convert display format to backend format (YYYY-MM-DD)
+function formatDateForBackend(dateStr: string): string {
+  if (!dateStr) return "";
+  // Accept DD/MM/YYYY or YYYY-MM-DD
+  if (dateStr.includes("/")) {
+    const [day, month, year] = dateStr.split("/");
+    return `${year}-${month}-${day}`;
+  }
+  return dateStr;
+}
+
 export default function ProfileEditScreen() {
   const insets = useSafeAreaInsets();
   const { user, fetchUser } = useUser();
@@ -28,21 +55,21 @@ export default function ProfileEditScreen() {
   const [uploadingCard, setUploadingCard] = useState(false);
 
   // User fields
-  const [fullName, setFullName] = useState((user as any)?.fullName || "");
+  const [fullName, setFullName] = useState((user as any)?.fullName || (user as any)?.name || "");
   const [phone, setPhone] = useState((user as any)?.phone || "");
   const [email, setEmail] = useState((user as any)?.email || "");
   const [city, setCity] = useState((user as any)?.city || "");
-  const [photoUrl, setPhotoUrl] = useState((user as any)?.photoUrl || null);
+  const [photoUrl, setPhotoUrl] = useState((user as any)?.photoUrl || (user as any)?.avatarUrl || null);
 
   // Student details
-  const [dateOfBirth, setDateOfBirth] = useState((user as any)?.dateOfBirth || "");
+  const [dateOfBirth, setDateOfBirth] = useState(formatDateForDisplay((user as any)?.dateOfBirth) || "");
   const [interests, setInterests] = useState((user as any)?.interests || "");
   const [referralSource, setReferralSource] = useState((user as any)?.referralSource || "");
   const [studentCardUrl, setStudentCardUrl] = useState((user as any)?.studentCardUrl || null);
 
   // School details
-  const [schoolName, setSchoolName] = useState((user as any)?.schoolName || "");
-  const [grade, setGrade] = useState((user as any)?.grade || "");
+  const [schoolName, setSchoolName] = useState((user as any)?.schoolName || (user as any)?.school || "");
+  const [grade, setGrade] = useState((user as any)?.level || "");
   const [npsn, setNpsn] = useState((user as any)?.npsn || "");
   const [schoolAddress, setSchoolAddress] = useState((user as any)?.schoolAddress || "");
   const [schoolEmail, setSchoolEmail] = useState((user as any)?.schoolEmail || "");
@@ -63,6 +90,39 @@ export default function ProfileEditScreen() {
   const [parentPhone, setParentPhone] = useState((user as any)?.parentPhone || "");
   const [parentSchoolId, setParentSchoolId] = useState((user as any)?.parentSchoolId || "");
 
+  // Update form fields when user data changes (after fetchUser)
+  useEffect(() => {
+    if (user) {
+      const u = user as any;
+      setFullName(u.fullName || u.name || "");
+      setPhone(u.phone || "");
+      setEmail(u.email || "");
+      setCity(u.city || "");
+      setPhotoUrl(u.photoUrl || u.avatarUrl || null);
+      setDateOfBirth(formatDateForDisplay(u.dateOfBirth) || "");
+      setInterests(u.interests || "");
+      setReferralSource(u.referralSource || "");
+      setStudentCardUrl(u.studentCardUrl || null);
+      setSchoolName(u.schoolName || u.school || "");
+      setGrade(u.level || "");
+      setNpsn(u.npsn || "");
+      setSchoolAddress(u.schoolAddress || "");
+      setSchoolEmail(u.schoolEmail || "");
+      setSchoolWhatsapp(u.schoolWhatsapp || "");
+      setSchoolPhone(u.schoolPhone || "");
+      setSupervisorName(u.supervisorName || "");
+      setSupervisorEmail(u.supervisorEmail || "");
+      setSupervisorWhatsapp(u.supervisorWhatsapp || "");
+      setSupervisorPhone(u.supervisorPhone || "");
+      setSupervisorSchoolId(u.supervisorSchoolId || "");
+      setParentName(u.parentName || "");
+      setParentOccupation(u.parentOccupation || "");
+      setParentWhatsapp(u.parentWhatsapp || "");
+      setParentPhone(u.parentPhone || "");
+      setParentSchoolId(u.parentSchoolId || "");
+    }
+  }, [user]);
+
   async function handlePickPhoto() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -77,9 +137,9 @@ export default function ProfileEditScreen() {
       try {
         const { photoUrl: newUrl } = await usersService.uploadPhoto(uri);
         setPhotoUrl(newUrl);
-        Alert.alert("Sukses", "Foto profil berhasil diubah");
+        Alert.alert("Success", "Profile photo updated successfully");
       } catch (err: any) {
-        Alert.alert("Error", err.message || "Gagal upload foto");
+        Alert.alert("Error", err.message || "Failed to upload photo");
       } finally {
         setUploadingPhoto(false);
       }
@@ -99,9 +159,9 @@ export default function ProfileEditScreen() {
       try {
         const { studentCardUrl: newUrl } = await usersService.uploadStudentCard(uri);
         setStudentCardUrl(newUrl);
-        Alert.alert("Sukses", "Kartu pelajar berhasil diupload");
+        Alert.alert("Success", "Student card uploaded successfully");
       } catch (err: any) {
-        Alert.alert("Error", err.message || "Gagal upload kartu pelajar");
+        Alert.alert("Error", err.message || "Failed to upload student card");
       } finally {
         setUploadingCard(false);
       }
@@ -110,7 +170,7 @@ export default function ProfileEditScreen() {
 
   async function handleSave() {
     if (!fullName.trim()) {
-      Alert.alert("Error", "Nama lengkap wajib diisi");
+      Alert.alert("Error", "Full name is required");
       return;
     }
 
@@ -120,7 +180,7 @@ export default function ProfileEditScreen() {
         fullName,
         phone,
         city,
-        dateOfBirth: dateOfBirth || undefined,
+        dateOfBirth: dateOfBirth ? formatDateForBackend(dateOfBirth) : undefined,
         interests: interests || undefined,
         referralSource: referralSource || undefined,
         schoolName: schoolName || undefined,
@@ -143,11 +203,11 @@ export default function ProfileEditScreen() {
       });
 
       await fetchUser((user as any)?.id);
-      Alert.alert("Sukses", "Profil berhasil diperbarui", [
+      Alert.alert("Success", "Profile updated successfully", [
         { text: "OK", onPress: () => router.back() },
       ]);
     } catch (err: any) {
-      Alert.alert("Error", err.message || "Gagal menyimpan profil");
+      Alert.alert("Error", err.message || "Failed to save profile");
     } finally {
       setSaving(false);
     }
@@ -168,9 +228,9 @@ export default function ProfileEditScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Text style={styles.backBtnText}>← Kembali</Text>
+            <Text style={styles.backBtnText}>← Back</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>Edit Profil</Text>
+          <Text style={styles.title}>Edit Profile</Text>
         </View>
 
         {/* Profile Photo */}
@@ -206,16 +266,17 @@ export default function ProfileEditScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Student Details</Text>
           <AppInput
-            label="Nama Lengkap"
-            placeholder="Nama lengkap"
+            label="Full Name"
+            placeholder="Enter your full name"
             value={fullName}
             onChangeText={setFullName}
           />
           <AppInput
-            label="Tanggal Lahir"
-            placeholder="YYYY-MM-DD"
+            label="Date of Birth"
+            placeholder="DD/MM/YYYY (e.g., 15/01/2005)"
             value={dateOfBirth}
             onChangeText={setDateOfBirth}
+            keyboardType="numbers-and-punctuation"
           />
           <AppInput
             label="WhatsApp / Phone Number"
@@ -233,14 +294,14 @@ export default function ProfileEditScreen() {
             editable={false}
           />
           <AppInput
-            label="Interest (comma-separated)"
+            label="Interests (comma-separated)"
             placeholder="e.g., Math, Science, Arts"
             value={interests}
             onChangeText={setInterests}
           />
           <AppInput
             label="Referral"
-            placeholder="Bagaimana kamu tahu KompetiApp?"
+            placeholder="How did you hear about us?"
             value={referralSource}
             onChangeText={setReferralSource}
           />
@@ -248,7 +309,7 @@ export default function ProfileEditScreen() {
 
         {/* Student Card */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Kartu Pelajar</Text>
+          <Text style={styles.sectionTitle}>Student Card</Text>
           {studentCardUrl ? (
             <View style={styles.cardPreview}>
               <Image
@@ -267,7 +328,7 @@ export default function ProfileEditScreen() {
               <ActivityIndicator color={Brand.primary} size="small" />
             ) : (
               <Text style={styles.uploadBtnText}>
-                {studentCardUrl ? "Ganti Kartu Pelajar" : "Upload Kartu Pelajar"}
+                {studentCardUrl ? "Change Student Card" : "Upload Student Card"}
               </Text>
             )}
           </TouchableOpacity>
@@ -278,40 +339,40 @@ export default function ProfileEditScreen() {
           <Text style={styles.sectionTitle}>School Details</Text>
           <AppInput
             label="School Name"
-            placeholder="Nama sekolah"
+            placeholder="Enter school name"
             value={schoolName}
             onChangeText={setSchoolName}
           />
           <AppInput
             label="NPSN"
-            placeholder="Nomor Pokok Sekolah Nasional"
+            placeholder="National School Number"
             value={npsn}
             onChangeText={setNpsn}
             keyboardType="number-pad"
           />
           <AppInput
             label="Address"
-            placeholder="Alamat sekolah"
+            placeholder="School address"
             value={schoolAddress}
             onChangeText={setSchoolAddress}
           />
           <AppInput
             label="Email"
-            placeholder="Email sekolah"
+            placeholder="School email"
             value={schoolEmail}
             onChangeText={setSchoolEmail}
             keyboardType="email-address"
           />
           <AppInput
             label="WhatsApp"
-            placeholder="WhatsApp sekolah"
+            placeholder="School WhatsApp number"
             value={schoolWhatsapp}
             onChangeText={setSchoolWhatsapp}
             keyboardType="phone-pad"
           />
           <AppInput
             label="Phone Number"
-            placeholder="Telepon sekolah"
+            placeholder="School phone number"
             value={schoolPhone}
             onChangeText={setSchoolPhone}
             keyboardType="phone-pad"
@@ -323,34 +384,34 @@ export default function ProfileEditScreen() {
           <Text style={styles.sectionTitle}>Supervisor Details</Text>
           <AppInput
             label="Name"
-            placeholder="Nama supervisor"
+            placeholder="Supervisor name"
             value={supervisorName}
             onChangeText={setSupervisorName}
           />
           <AppInput
             label="Email"
-            placeholder="Email supervisor"
+            placeholder="Supervisor email"
             value={supervisorEmail}
             onChangeText={setSupervisorEmail}
             keyboardType="email-address"
           />
           <AppInput
             label="WhatsApp"
-            placeholder="WhatsApp supervisor"
+            placeholder="Supervisor WhatsApp"
             value={supervisorWhatsapp}
             onChangeText={setSupervisorWhatsapp}
             keyboardType="phone-pad"
           />
           <AppInput
             label="Phone Number"
-            placeholder="Telepon supervisor"
+            placeholder="Supervisor phone number"
             value={supervisorPhone}
             onChangeText={setSupervisorPhone}
             keyboardType="phone-pad"
           />
           <AppInput
             label="School ID"
-            placeholder="ID sekolah supervisor"
+            placeholder="Supervisor school ID"
             value={supervisorSchoolId}
             onChangeText={setSupervisorSchoolId}
           />
@@ -361,33 +422,33 @@ export default function ProfileEditScreen() {
           <Text style={styles.sectionTitle}>Parent Details</Text>
           <AppInput
             label="Name"
-            placeholder="Nama orang tua"
+            placeholder="Parent name"
             value={parentName}
             onChangeText={setParentName}
           />
           <AppInput
             label="Occupation"
-            placeholder="Pekerjaan orang tua"
+            placeholder="Parent occupation"
             value={parentOccupation}
             onChangeText={setParentOccupation}
           />
           <AppInput
             label="WhatsApp"
-            placeholder="WhatsApp orang tua"
+            placeholder="Parent WhatsApp"
             value={parentWhatsapp}
             onChangeText={setParentWhatsapp}
             keyboardType="phone-pad"
           />
           <AppInput
             label="Phone Number"
-            placeholder="Telepon orang tua"
+            placeholder="Parent phone number"
             value={parentPhone}
             onChangeText={setParentPhone}
             keyboardType="phone-pad"
           />
           <AppInput
             label="School ID"
-            placeholder="ID sekolah orang tua"
+            placeholder="Parent school ID"
             value={parentSchoolId}
             onChangeText={setParentSchoolId}
           />
@@ -402,7 +463,7 @@ export default function ProfileEditScreen() {
           {saving ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.saveBtnText}>Simpan Perubahan</Text>
+            <Text style={styles.saveBtnText}>Save Changes</Text>
           )}
         </TouchableOpacity>
 

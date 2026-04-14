@@ -27,11 +27,11 @@ interface Document {
 }
 
 const DOC_TYPES = [
-  { id: "id_card",        label: "Kartu Identitas",       icon: "🪪" },
-  { id: "report_card",    label: "Rapor",                 icon: "📄" },
-  { id: "recommendation", label: "Surat Rekomendasi",     icon: "💌" },
-  { id: "certificate",   label: "Sertifikat",             icon: "🏆" },
-  { id: "other",          label: "Dokumen Lainnya",       icon: "📎" },
+  { id: "id_card",        label: "ID Card",               icon: "🪪" },
+  { id: "report_card",    label: "Report Card",           icon: "📄" },
+  { id: "recommendation", label: "Recommendation Letter", icon: "💌" },
+  { id: "certificate",   label: "Certificate",            icon: "🏆" },
+  { id: "other",          label: "Other Documents",       icon: "📎" },
 ];
 
 function formatFileSize(bytes: number) {
@@ -139,7 +139,7 @@ export default function DocumentVaultScreen() {
         });
       }
     } catch {
-      Alert.alert("Error", "Gagal membuka dokumen");
+      Alert.alert("Error", "Failed to open document");
     }
   };
 
@@ -158,7 +158,7 @@ export default function DocumentVaultScreen() {
         });
       }
     } catch {
-      Alert.alert("Error", "Gagal membuka galeri");
+      Alert.alert("Error", "Failed to open gallery");
     }
   };
 
@@ -166,7 +166,7 @@ export default function DocumentVaultScreen() {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Izin Diperlukan", "Izinkan akses kamera di pengaturan.");
+        Alert.alert("Permission Required", "Please allow camera access in settings.");
         return;
       }
       const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
@@ -179,21 +179,21 @@ export default function DocumentVaultScreen() {
         });
       }
     } catch {
-      Alert.alert("Error", "Gagal membuka kamera");
+      Alert.alert("Error", "Failed to open camera");
     }
   };
 
   // ── Doc type selector → upload ─────────────────────────────────────────────
   const showDocTypeSelector = (file: { uri: string; name: string; mimeType: string }) => {
     Alert.alert(
-      "Jenis Dokumen",
-      "Dokumen ini termasuk jenis apa?",
+      "Document Type",
+      "What type of document is this?",
       [
         ...DOC_TYPES.map((t) => ({
           text: `${t.icon} ${t.label}`,
           onPress: () => uploadDocument(file, t.id),
         })),
-        { text: "Batal", style: "cancel" as const },
+        { text: "Cancel", style: "cancel" as const },
       ]
     );
   };
@@ -207,9 +207,9 @@ export default function DocumentVaultScreen() {
     try {
       await uploadFileXHR(file.uri, file.name, file.mimeType, docType, setUploadProgress);
       await fetchDocuments();
-      Alert.alert("✅ Berhasil", "Dokumen berhasil diunggah!");
+      Alert.alert("✅ Success", "Document uploaded successfully!");
     } catch (err: any) {
-      Alert.alert("Gagal", err?.message || "Gagal mengunggah dokumen. Coba lagi.");
+      Alert.alert("Failed", err?.message || "Failed to upload document. Please try again.");
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -219,19 +219,19 @@ export default function DocumentVaultScreen() {
   // ── Delete ─────────────────────────────────────────────────────────────────
   const handleDelete = (docId: string, fileName: string) => {
     Alert.alert(
-      "Hapus Dokumen",
-      `Hapus "${fileName}"? Tindakan ini tidak bisa dibatalkan.`,
+      "Delete Document",
+      `Delete "${fileName}"? This action cannot be undone.`,
       [
-        { text: "Batal", style: "cancel" },
+        { text: "Cancel", style: "cancel" },
         {
-          text: "Hapus",
+          text: "Delete",
           style: "destructive",
           onPress: async () => {
             try {
               await documentService.remove(docId);
               setDocuments((prev) => prev.filter((d) => d.id !== docId));
             } catch {
-              Alert.alert("Error", "Gagal menghapus dokumen");
+              Alert.alert("Error", "Failed to delete document");
             }
           },
         },
@@ -258,19 +258,19 @@ export default function DocumentVaultScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Brankas Dokumen 🗄️</Text>
+        <Text style={styles.title}>Document Vault 🗄️</Text>
         <Text style={styles.subtitle}>
-          Simpan dokumen pentingmu di sini untuk mempermudah pendaftaran lomba.
+          Store your important documents here to make competition registration easier.
         </Text>
       </View>
 
       {/* Upload buttons */}
-      <Text style={styles.sectionLabel}>Tambah Dokumen</Text>
+      <Text style={styles.sectionLabel}>Add Document</Text>
       <View style={styles.uploadRow}>
         {[
-          { emoji: "📄", label: "File / PDF",   onPress: handlePickDocument },
-          { emoji: "🖼️",  label: "Dari Galeri",  onPress: handlePickImage },
-          { emoji: "📸",  label: "Kamera",       onPress: handleCamera },
+          { emoji: "📄", label: "File / PDF",     onPress: handlePickDocument },
+          { emoji: "🖼️",  label: "From Gallery",  onPress: handlePickImage },
+          { emoji: "📸",  label: "Camera",        onPress: handleCamera },
         ].map((btn) => (
           <TouchableOpacity
             key={btn.label}
@@ -299,15 +299,15 @@ export default function DocumentVaultScreen() {
 
       {/* Document list */}
       <Text style={[styles.sectionLabel, { marginTop: 24 }]}>
-        Dokumenku ({documents.length})
+        My Documents ({documents.length})
       </Text>
 
       {documents.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>📭</Text>
-          <Text style={styles.emptyTitle}>Belum ada dokumen</Text>
+          <Text style={styles.emptyTitle}>No documents yet</Text>
           <Text style={styles.emptySubtext}>
-            Unggah dokumen seperti rapor, KTP, atau sertifikat untuk mempercepat pendaftaran.
+            Upload documents like report cards, ID, or certificates to speed up registration.
           </Text>
         </View>
       ) : (
@@ -352,7 +352,7 @@ export default function DocumentVaultScreen() {
       <View style={styles.infoBox}>
         <Text style={styles.infoEmoji}>🔒</Text>
         <Text style={styles.infoText}>
-          Format yang diterima: PDF, JPG, PNG (maks. 10 MB). Dokumenmu aman dan hanya bisa dilihat olehmu dan panitia lomba yang kamu daftar.
+          Accepted formats: PDF, JPG, PNG (max. 10 MB). Your documents are secure and can only be viewed by you and the competition organizers you register with.
         </Text>
       </View>
     </ScrollView>

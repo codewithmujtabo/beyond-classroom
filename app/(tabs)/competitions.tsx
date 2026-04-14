@@ -26,7 +26,7 @@ import { Analytics } from "@/services/analytics";
 const GRADES = ["SD", "SMP", "SMA"] as const;
 
 function formatPrice(fee: number) {
-  return fee === 0 ? "GRATIS" : `Rp ${fee.toLocaleString("id-ID")}`;
+  return fee === 0 ? "FREE" : `Rp ${fee.toLocaleString("id-ID")}`;
 }
 
 function formatDeadline(date: string | null) {
@@ -47,15 +47,15 @@ function getDeadlineStatus(
   );
   if (days < 0) return null;
   if (days <= 3)
-    return { label: `‼ ${days} hari lagi`, color: "#fff", bg: "#EF4444" };
+    return { label: `‼ ${days} days left`, color: "#fff", bg: "#EF4444" };
   if (days <= 7)
     return {
-      label: `⚡ ${days} hari lagi`,
+      label: `⚡ ${days} days left`,
       color: "#92400E",
       bg: "#FEF3C7",
     };
   if (days <= 14)
-    return { label: `${days} hari lagi`, color: "#713F12", bg: "#FDE68A" };
+    return { label: `${days} days left`, color: "#713F12", bg: "#FDE68A" };
   return null;
 }
 
@@ -86,7 +86,7 @@ export default function DiscoverScreen() {
   const displayName =
     (user as any)?.fullName?.split(" ")[0] ??
     (user as any)?.name?.split(" ")[0] ??
-    "Kamu";
+    "there";
 
   const {
     data: allCompetitions = [],
@@ -118,17 +118,17 @@ export default function DiscoverScreen() {
     <View>
       {/* Personalized greeting */}
       <View style={styles.greeting}>
-        <Text style={styles.greetingText}>Halo, {displayName}! 👋</Text>
+        <Text style={styles.greetingText}>Hello, {displayName}! 👋</Text>
         <Text style={styles.greetingSubtitle}>
           {isLoading
-            ? "Mencari lomba untukmu..."
-            : `${allCompetitions.length} lomba tersedia untukmu`}
+            ? "Finding competitions for you..."
+            : `${allCompetitions.length} competitions available for you`}
         </Text>
       </View>
 
       {/* Search bar */}
       <TextInput
-        placeholder="Cari nama lomba..."
+        placeholder="Search competitions..."
         placeholderTextColor="#94A3B8"
         value={query}
         onChangeText={setQuery}
@@ -208,7 +208,7 @@ export default function DiscoverScreen() {
       </View>
 
       <Text style={styles.sectionTitle}>
-        {isLoading ? "Memuat..." : `Tersedia (${filtered.length})`}
+        {isLoading ? "Loading..." : `Available (${filtered.length})`}
       </Text>
     </View>
   );
@@ -219,9 +219,9 @@ export default function DiscoverScreen() {
         style={[styles.container, styles.center, { paddingTop: insets.top }]}
       >
         <Text style={styles.errorEmoji}>😕</Text>
-        <Text style={styles.errorText}>Gagal memuat lomba</Text>
+        <Text style={styles.errorText}>Failed to load competitions</Text>
         <Pressable style={styles.retryBtn} onPress={() => refetch()}>
-          <Text style={styles.retryText}>Coba Lagi</Text>
+          <Text style={styles.retryText}>Try Again</Text>
         </Pressable>
       </View>
     );
@@ -248,9 +248,9 @@ export default function DiscoverScreen() {
           ) : (
             <View style={styles.center}>
               <Text style={{ fontSize: 40, marginBottom: 12 }}>🔍</Text>
-              <Text style={styles.emptyText}>Lomba tidak ditemukan</Text>
+              <Text style={styles.emptyText}>No competitions found</Text>
               <Text style={styles.emptySubtext}>
-                Coba ubah filter atau kata kunci
+                Try changing filters or keywords
               </Text>
             </View>
           )
@@ -352,7 +352,7 @@ export default function DiscoverScreen() {
                   </Text>
                 )}
                 <Text style={[styles.cardAction, { color: accent }]}>
-                  Lihat Detail →
+                  View Details →
                 </Text>
               </View>
             </Pressable>

@@ -20,12 +20,12 @@ const STATUS_CFG: Record<
   { label: string; bg: string; color: string }
 > = {
   registered: {
-    label: "⏳ Menunggu Pembayaran",
+    label: "⏳ Awaiting Payment",
     bg: "#FEF3C7",
     color: "#92400E",
   },
-  paid: { label: "✅ Aktif", bg: "#D1FAE5", color: "#065F46" },
-  completed: { label: "🎓 Selesai", bg: "#DBEAFE", color: "#1E40AF" },
+  paid: { label: "✅ Active", bg: "#D1FAE5", color: "#065F46" },
+  completed: { label: "🎓 Completed", bg: "#DBEAFE", color: "#1E40AF" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -59,7 +59,7 @@ export default function MyCompetitionsScreen() {
   useEffect(() => {
     if (lastRegisteredId) {
       const reg = registrations.find((r) => r.compId === lastRegisteredId);
-      setToast(reg ? `Berhasil daftar: ${reg.competitionName} 🎉` : "Berhasil daftar!");
+      setToast(reg ? `Successfully registered: ${reg.competitionName} 🎉` : "Successfully registered!");
       setTimeout(() => {
         clearLastRegistered && clearLastRegistered();
         setToast(null);
@@ -87,8 +87,8 @@ export default function MyCompetitionsScreen() {
       ]}
     >
       <View style={styles.header}>
-        <Text style={styles.title}>Lombaku</Text>
-        <Text style={styles.subtitle}>Pantau pendaftaran & hasilmu</Text>
+        <Text style={styles.title}>My Registrations</Text>
+        <Text style={styles.subtitle}>Track your registrations & results</Text>
       </View>
 
       {toast && (
@@ -140,9 +140,9 @@ export default function MyCompetitionsScreen() {
       {regsForTab.length === 0 ? (
         <View style={styles.placeholder}>
           <Text style={styles.placeholderEmoji}>📋</Text>
-          <Text style={styles.placeholderTitle}>Belum ada lomba</Text>
+          <Text style={styles.placeholderTitle}>No competitions yet</Text>
           <Text style={styles.placeholderText}>
-            Daftar lomba dan semuanya{"\n"}akan muncul di sini.
+            Register for competitions and everything{"\n"}will appear here.
           </Text>
         </View>
       ) : (
@@ -183,7 +183,7 @@ export default function MyCompetitionsScreen() {
                     </Text>
                     <Text style={styles.regCardFee}>
                       {item.fee === 0
-                        ? "Gratis"
+                        ? "Free"
                         : `Rp ${item.fee.toLocaleString("id-ID")}`}
                     </Text>
                     <StatusBadge status={item.status} />
@@ -202,7 +202,7 @@ export default function MyCompetitionsScreen() {
                     activeOpacity={0.8}
                   >
                     <Text style={styles.payBtnText}>
-                      Lanjutkan Pembayaran →
+                      Continue Payment →
                     </Text>
                   </TouchableOpacity>
                 )}

@@ -2,6 +2,7 @@ import { Brand } from "@/constants/theme";
 import { useUser } from "@/context/AuthContext";
 import { router } from "expo-router";
 import {
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,11 +17,13 @@ export default function ProfileScreen() {
 
   const fullName = (user as any)?.fullName ?? (user as any)?.name ?? "—";
   const initial = fullName.charAt(0).toUpperCase();
+  const photoUrl = (user as any)?.photoUrl || (user as any)?.avatarUrl;
+  const API_BASE = process.env.EXPO_PUBLIC_API_URL?.replace("/api", "") || "";
 
   const roleLabel: Record<string, string> = {
-    student: "Siswa",
-    parent: "Orang Tua",
-    teacher: "Guru",
+    student: "Student",
+    parent: "Parent",
+    teacher: "Teacher",
   };
   const roleMeta: Record<string, string> = {
     student: "👨‍🎓",
@@ -38,27 +41,27 @@ export default function ProfileScreen() {
   const menuItems = [
     {
       emoji: "👤",
-      label: "Edit Profil",
+      label: "Edit Profile",
       onPress: () => router.push("/(tabs)/profile/edit"),
     },
     {
       emoji: "📄",
-      label: "Brankas Dokumen",
+      label: "Document Vault",
       onPress: () => router.push("/(tabs)/profile/document-vault"),
     },
     {
       emoji: "🔔",
-      label: "Notifikasi",
+      label: "Notifications",
       onPress: () => {},
     },
     {
       emoji: "⚙️",
-      label: "Pengaturan Akun",
+      label: "Account Settings",
       onPress: () => {},
     },
     {
       emoji: "❓",
-      label: "Bantuan & FAQ",
+      label: "Help & FAQ",
       onPress: () => {},
     },
   ];
@@ -77,7 +80,14 @@ export default function ProfileScreen() {
         {/* Avatar with ring */}
         <View style={styles.avatarRing}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarInitial}>{initial}</Text>
+            {photoUrl ? (
+              <Image
+                source={{ uri: `${API_BASE}${photoUrl}` }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <Text style={styles.avatarInitial}>{initial}</Text>
+            )}
           </View>
         </View>
 
@@ -101,9 +111,9 @@ export default function ProfileScreen() {
       {/* Live stats row */}
       <View style={styles.statsRow}>
         {[
-          { label: "Total Lomba", value: String(totalComps) },
-          { label: "Aktif", value: String(active) },
-          { label: "Selesai", value: String(completed) },
+          { label: "Total", value: String(totalComps) },
+          { label: "Active", value: String(active) },
+          { label: "Completed", value: String(completed) },
         ].map((s, i) => (
           <View
             key={s.label}
@@ -145,7 +155,7 @@ export default function ProfileScreen() {
         onPress={() => router.replace("/(auth)/login" as any)}
         activeOpacity={0.8}
       >
-        <Text style={styles.signOutText}>🚪 Keluar</Text>
+        <Text style={styles.signOutText}>🚪 Sign Out</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -191,6 +201,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarInitial: { fontSize: 36, fontWeight: "800", color: "#fff" },
+  avatarImage: { width: 84, height: 84, borderRadius: 42 },
   name: {
     fontSize: 22,
     fontWeight: "800",

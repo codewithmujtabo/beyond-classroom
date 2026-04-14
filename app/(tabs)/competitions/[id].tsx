@@ -100,13 +100,13 @@ export default function CompetitionDetailPage() {
           <Pressable onPress={handleBack} style={styles.backBtn}>
             <IconSymbol size={24} name="chevron.left" color="#0F172A" />
           </Pressable>
-          <Text style={styles.headerTitle}>Kompetisi tidak ditemukan</Text>
+          <Text style={styles.headerTitle}>Competition not found</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.center}>
-          <Text style={styles.errorText}>Kompetisi tidak dapat dimuat.</Text>
+          <Text style={styles.errorText}>Unable to load competition.</Text>
           <Pressable style={styles.retryBtn} onPress={() => router.back()}>
-            <Text style={styles.retryText}>Kembali</Text>
+            <Text style={styles.retryText}>Back</Text>
           </Pressable>
         </View>
       </View>
@@ -135,14 +135,14 @@ export default function CompetitionDetailPage() {
         <Text style={styles.compOrg}>{comp.organizerName}</Text>
         <Text style={styles.compMeta}>
           {comp.category} · {comp.gradeLevel.replace(/,/g, ", ")} ·{" "}
-          Tutup {formatDate(comp.regCloseDate)}
+          Closes {formatDate(comp.regCloseDate)}
         </Text>
         <Text style={[styles.compPrice, { marginTop: 12 }]}>
           {formatPrice(comp.fee)}
         </Text>
         {isClosed && (
           <View style={styles.closedBadge}>
-            <Text style={styles.closedText}>Pendaftaran Ditutup</Text>
+            <Text style={styles.closedText}>Registration Closed</Text>
           </View>
         )}
       </View>
@@ -158,7 +158,7 @@ export default function CompetitionDetailPage() {
             <Text
               style={[styles.tabLabel, activeTab === tab && styles.tabLabelActive]}
             >
-              {tab === "overview" ? "Tentang" : tab === "registration" ? "Daftar" : "Pembayaran"}
+              {tab === "overview" ? "About" : tab === "registration" ? "Register" : "Payment"}
             </Text>
           </Pressable>
         ))}
@@ -168,32 +168,32 @@ export default function CompetitionDetailPage() {
       <ScrollView contentContainerStyle={styles.tabContent}>
         {activeTab === "overview" && (
           <View>
-            <Text style={styles.sectionTitle}>Tentang Kompetisi</Text>
+            <Text style={styles.sectionTitle}>About the Competition</Text>
             <Text style={styles.sectionText}>{comp.description}</Text>
 
-            <Text style={styles.sectionTitle}>Tanggal Penting</Text>
+            <Text style={styles.sectionTitle}>Important Dates</Text>
             <View style={styles.infoBox}>
-              <Text style={styles.boxLabel}>Pendaftaran Dibuka</Text>
+              <Text style={styles.boxLabel}>Registration Opens</Text>
               <Text style={styles.boxValue}>{formatDate(comp.regOpenDate)}</Text>
             </View>
             <View style={styles.infoBox}>
-              <Text style={styles.boxLabel}>Pendaftaran Ditutup</Text>
+              <Text style={styles.boxLabel}>Registration Closes</Text>
               <Text style={styles.boxValue}>{formatDate(comp.regCloseDate)}</Text>
             </View>
             <View style={styles.infoBox}>
-              <Text style={styles.boxLabel}>Tanggal Kompetisi</Text>
+              <Text style={styles.boxLabel}>Competition Date</Text>
               <Text style={styles.boxValue}>{formatDate(comp.competitionDate)}</Text>
             </View>
 
-            <Text style={styles.sectionTitle}>Jenjang Pendidikan</Text>
+            <Text style={styles.sectionTitle}>Education Level</Text>
             <Text style={styles.sectionText}>
               {comp.gradeLevel.replace(/,/g, ", ")}
             </Text>
 
             {comp.quota && (
               <>
-                <Text style={styles.sectionTitle}>Kuota Peserta</Text>
-                <Text style={styles.sectionText}>{comp.quota} peserta</Text>
+                <Text style={styles.sectionTitle}>Participant Quota</Text>
+                <Text style={styles.sectionText}>{comp.quota} participants</Text>
               </>
             )}
           </View>
@@ -201,15 +201,15 @@ export default function CompetitionDetailPage() {
 
         {activeTab === "registration" && (
           <View>
-            <Text style={styles.sectionTitle}>Status Pendaftaran</Text>
+            <Text style={styles.sectionTitle}>Registration Status</Text>
             <View style={styles.infoBox}>
-              <Text style={styles.boxLabel}>Status Kamu</Text>
+              <Text style={styles.boxLabel}>Your Status</Text>
               <Text style={[styles.boxValue, { color: already ? "#059669" : "#94A3B8" }]}>
-                {already ? "✓ Sudah Terdaftar" : "Belum Terdaftar"}
+                {already ? "✓ Already Registered" : "Not Registered"}
               </Text>
             </View>
 
-            <Text style={styles.sectionTitle}>Dokumen yang Diperlukan</Text>
+            <Text style={styles.sectionTitle}>Required Documents</Text>
             {comp.requiredDocs.length > 0 ? (
               comp.requiredDocs.map((doc, i) => (
                 <View key={i} style={styles.docItem}>
@@ -220,16 +220,16 @@ export default function CompetitionDetailPage() {
                 </View>
               ))
             ) : (
-              <Text style={styles.sectionText}>Tidak ada dokumen yang diperlukan.</Text>
+              <Text style={styles.sectionText}>No documents required.</Text>
             )}
           </View>
         )}
 
         {activeTab === "payment" && (
           <View>
-            <Text style={styles.sectionTitle}>Biaya Pendaftaran</Text>
+            <Text style={styles.sectionTitle}>Registration Fee</Text>
             <View style={styles.infoBox}>
-              <Text style={styles.boxLabel}>Total Biaya</Text>
+              <Text style={styles.boxLabel}>Total Fee</Text>
               <Text style={[styles.boxValue, { fontSize: 20, fontWeight: "800" }]}>
                 {formatPrice(comp.fee)}
               </Text>
@@ -237,12 +237,12 @@ export default function CompetitionDetailPage() {
 
             {comp.fee > 0 ? (
               <Text style={[styles.sectionText, { marginTop: 12 }]}>
-                Metode pembayaran (GoPay, OVO, Dana, Bank Transfer) akan tersedia setelah kamu mendaftar.
-                Integrasi Midtrans sedang dalam pengembangan.
+                Payment methods (GoPay, OVO, Dana, Bank Transfer) will be available after you register.
+                Midtrans integration is under development.
               </Text>
             ) : (
               <Text style={[styles.sectionText, { marginTop: 12, color: "#059669" }]}>
-                ✓ Kompetisi ini GRATIS! Tidak ada biaya pendaftaran.
+                ✓ This competition is FREE! No registration fee.
               </Text>
             )}
           </View>
@@ -271,10 +271,10 @@ export default function CompetitionDetailPage() {
         >
           <Text style={styles.registerBtnText}>
             {isClosed
-              ? "Pendaftaran Ditutup"
+              ? "Registration Closed"
               : already
-              ? "✓ Sudah Terdaftar"
-              : "Daftar Sekarang"}
+              ? "✓ Already Registered"
+              : "Register Now"}
           </Text>
         </Pressable>
       </View>

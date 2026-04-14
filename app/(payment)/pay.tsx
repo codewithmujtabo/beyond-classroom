@@ -28,36 +28,36 @@ const STATE_CONTENT: Record<
 > = {
   success: {
     emoji: "🎉",
-    title: "Pembayaran Berhasil!",
+    title: "Payment Successful!",
     subtitle:
-      "Pendaftaranmu sudah dikonfirmasi. Cek tab Lombaku untuk melihat statusnya.",
+      "Your registration has been confirmed. Check the My Registrations tab to see the status.",
     accent: "#059669",
   },
   pending: {
     emoji: "⏳",
-    title: "Menunggu Konfirmasi",
+    title: "Awaiting Confirmation",
     subtitle:
-      "Pembayaranmu sedang diproses. Kami akan memperbarui status secara otomatis.",
+      "Your payment is being processed. We will update the status automatically.",
     accent: "#D97706",
   },
   failed: {
     emoji: "❌",
-    title: "Pembayaran Gagal",
+    title: "Payment Failed",
     subtitle:
-      "Transaksi tidak berhasil. Silakan coba lagi atau gunakan metode pembayaran lain.",
+      "Transaction was unsuccessful. Please try again or use a different payment method.",
     accent: "#EF4444",
   },
   cancelled: {
     emoji: "↩️",
-    title: "Halaman Ditutup",
+    title: "Page Closed",
     subtitle:
-      "Jika kamu sudah selesai membayar, statusnya akan muncul di tab Lombaku. Jika belum, kamu bisa coba lagi.",
+      "If you've already completed payment, the status will appear in My Registrations. If not, you can try again.",
     accent: "#64748B",
   },
   error: {
     emoji: "😕",
-    title: "Terjadi Kesalahan",
-    subtitle: "Tidak dapat memuat halaman pembayaran. Coba lagi dalam beberapa saat.",
+    title: "An Error Occurred",
+    subtitle: "Unable to load payment page. Please try again in a moment.",
     accent: "#EF4444",
   },
 };
@@ -77,7 +77,7 @@ export default function PayScreen() {
   const startPayment = useCallback(async () => {
     if (!registrationId) {
       setPaymentState("error");
-      setErrorDetail("ID pendaftaran tidak ditemukan.");
+      setErrorDetail("Registration ID not found.");
       return;
     }
 
@@ -150,8 +150,8 @@ export default function PayScreen() {
         <ActivityIndicator size="large" color={Brand.primary} />
         <Text style={styles.loadingText}>
           {paymentState === "loading"
-            ? "Menyiapkan pembayaran..."
-            : "Halaman pembayaran sedang dibuka..."}
+            ? "Preparing payment..."
+            : "Opening payment page..."}
         </Text>
       </View>
     );
@@ -187,7 +187,7 @@ export default function PayScreen() {
             onPress={() => router.replace("/(tabs)/my-competitions")}
             activeOpacity={0.85}
           >
-            <Text style={styles.primaryBtnText}>Lihat Lombaku</Text>
+            <Text style={styles.primaryBtnText}>View My Registrations</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -198,7 +198,7 @@ export default function PayScreen() {
             }}
             activeOpacity={0.85}
           >
-            <Text style={styles.primaryBtnText}>Coba Lagi</Text>
+            <Text style={styles.primaryBtnText}>Try Again</Text>
           </TouchableOpacity>
         )}
 
@@ -212,7 +212,7 @@ export default function PayScreen() {
             }}
             activeOpacity={0.8}
           >
-            <Text style={styles.secondaryBtnText}>Bayar Sekarang</Text>
+            <Text style={styles.secondaryBtnText}>Pay Now</Text>
           </TouchableOpacity>
         )}
 
