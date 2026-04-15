@@ -1,13 +1,14 @@
 import { AppInput } from "@/components/common/AppInput";
 import * as authService from "@/services/auth.service";
 import { Brand } from "@/constants/theme";
-import { useUser } from "@/context/UserContext";
+import { useUser } from "@/context/AuthContext";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -50,10 +51,11 @@ export default function RegisterScreen() {
   const router = useRouter();
   const { fetchUser } = useUser();
 
-  // Step 1: Role selection, Step 2: Details
+  // Step 1: Role selection, Step 2: Details, Step 3: Consent
   const [step, setStep] = useState<
-    "role" | "details"
+    "role" | "details" | "consent"
   >("role");
+  const [consentChecked, setConsentChecked] = useState(false);
   const [role, setRole] =
     useState<Role>("student");
 
@@ -172,7 +174,10 @@ export default function RegisterScreen() {
 
   const handleCreateAccount =
     async () => {
-      if (!validateDetails()) return;
+      if (!consentChecked) {
+        Alert.alert("Consent Required", "You must agree to the privacy policy to continue.");
+        return;
+      }
 
       setLoading(true);
       try {
@@ -206,6 +211,7 @@ export default function RegisterScreen() {
             city: city.trim(),
             role,
             roleData,
+            consentAccepted: true,
           });
 
         Alert.alert(
@@ -378,6 +384,93 @@ export default function RegisterScreen() {
             Continue
           </Text>
         </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // ─── Step 3: Consent ────────────────────────────────────────────────────────
+
+  if (step === "consent") {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}>
+          <View style={{ alignItems: "center", marginBottom: 24 }}>
+            <Text style={{ fontSize: 48, marginBottom: 12 }}>🔐</Text>
+            <Text style={[styles.stepTitle, { textAlign: "center" }]}>
+              Privacy Policy
+            </Text>
+            <Text style={{ color: "#64748B", textAlign: "center", marginTop: 8, lineHeight: 20 }}>
+              Before creating an account, please read and agree to the following terms.
+            </Text>
+          </View>
+
+          <View style={styles.consentBox}>
+            <Text style={styles.consentTitle}>Data we collect</Text>
+            <Text style={styles.consentBody}>
+              • Profile & identity (name, email, phone number, city){"\n"}
+              • Education data (school, grade, scores — for parents/teachers){"\n"}
+              • Documents you upload (report cards, certificates, photos){"\n"}
+              • App usage activity (competitions viewed & registered)
+            </Text>
+
+            <Text style={[styles.consentTitle, { marginTop: 16 }]}>How data is used</Text>
+            <Text style={styles.consentBody}>
+              • Display relevant competitions for you{"\n"}
+              • Process competition registrations & payments{"\n"}
+              • Send important notifications related to competitions{"\n"}
+              • Improve the quality of Beyond Classroom services
+            </Text>
+
+            <Text style={[styles.consentTitle, { marginTop: 16 }]}>Data security</Text>
+            <Text style={styles.consentBody}>
+              Your data is stored securely and is not sold to third parties.
+              In accordance with the Personal Data Protection Law (Law No. 27 of 2022),
+              you can request data deletion by contacting our team.
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.checkRow}
+            onPress={() => setConsentChecked((v) => !v)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
+              {consentChecked && <Text style={{ color: "#fff", fontWeight: "800" }}>✓</Text>}
+            </View>
+            <Text style={styles.checkLabel}>
+              I have read and agree to the{" "}
+              <Text
+                style={{ color: Brand.primary, textDecorationLine: "underline" }}
+                onPress={() => Linking.openURL("https://beyondclassroom.id/privacy")}
+              >
+                Privacy Policy
+              </Text>{" "}
+              of Beyond Classroom.
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        <View style={[styles.footerButtons, { paddingBottom: insets.bottom + 16 }]}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => setStep("details")}
+          >
+            <Text style={styles.backBtnText}>Back</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.registerBtn, (!consentChecked || loading) && styles.registerBtnDisabled]}
+            onPress={handleCreateAccount}
+            disabled={!consentChecked || loading}
+            activeOpacity={0.8}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.registerBtnText}>Create Account</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -688,27 +781,15 @@ export default function RegisterScreen() {
         <TouchableOpacity
           style={[
             styles.registerBtn,
-            loading &&
-              styles.registerBtnDisabled,
+            loading && styles.registerBtnDisabled,
           ]}
-          onPress={handleCreateAccount}
+          onPress={() => {
+            if (validateDetails()) setStep("consent");
+          }}
           disabled={loading}
           activeOpacity={0.8}
         >
-          {loading ? (
-            <ActivityIndicator
-              color="#fff"
-              size="small"
-            />
-          ) : (
-            <Text
-              style={
-                styles.registerBtnText
-              }
-            >
-              Create Account
-            </Text>
-          )}
+          <Text style={styles.registerBtnText}>Continue</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -887,5 +968,54 @@ const styles = StyleSheet.create({
   },
   registerBtnDisabled: {
     opacity: 0.6,
+  },
+  // ─── Consent Screen ───────────────────────────────────────────────────────
+  consentBox: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 20,
+  },
+  consentTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  consentBody: {
+    fontSize: 13,
+    color: "#475569",
+    lineHeight: 21,
+  },
+  checkRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    marginBottom: 8,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#CBD5E1",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  checkboxChecked: {
+    backgroundColor: Brand.primary,
+    borderColor: Brand.primary,
+  },
+  checkLabel: {
+    flex: 1,
+    fontSize: 13,
+    color: "#334155",
+    lineHeight: 20,
   },
 });

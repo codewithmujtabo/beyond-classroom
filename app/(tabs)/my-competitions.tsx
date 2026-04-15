@@ -1,262 +1,223 @@
-import { COMPETITIONS } from "@/constants/competitions";
-import { Brand } from "@/constants/theme";
-import { useUser } from "@/context/UserContext";
-import React, {
-    useEffect,
-    useState,
-} from "react";
+import { Brand, CategoryAccent, CategoryBg, CategoryEmoji } from "@/constants/theme";
+import { useUser } from "@/context/AuthContext";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const TABS = [
-  "Upcoming",
-  "Ongoing",
-  "Completed",
-] as const;
+const TABS = ["Upcoming", "Ongoing", "Completed"] as const;
 type TabType = (typeof TABS)[number];
 
-// ...existing code...
+const STATUS_CFG: Record<
+  string,
+  { label: string; bg: string; color: string }
+> = {
+  registered: {
+    label: "⏳ Awaiting Payment",
+    bg: "#FEF3C7",
+    color: "#92400E",
+  },
+  paid: { label: "✅ Active", bg: "#D1FAE5", color: "#065F46" },
+  completed: { label: "🎓 Completed", bg: "#DBEAFE", color: "#1E40AF" },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const c = STATUS_CFG[status] ?? {
+    label: status,
+    bg: "#F1F5F9",
+    color: "#475569",
+  };
+  return (
+    <View
+      style={[styles.statusBadge, { backgroundColor: c.bg }]}
+    >
+      <Text style={[styles.statusText, { color: c.color }]}>{c.label}</Text>
+    </View>
+  );
+}
 
 export default function MyCompetitionsScreen() {
+  const router = useRouter();
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
+
   const {
-    user,
     registrations,
-    markRegistrationPaid,
     lastRegisteredId,
     clearLastRegistered,
+    refreshRegistrations,
   } = useUser();
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] =
-    useState<TabType>("Upcoming");
-  const [toast, setToast] = useState<
-    string | null
-  >(null);
+  const [activeTab, setActiveTab] = useState<TabType>("Upcoming");
+  const [toast, setToast] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Show toast when a registration is created via context
+  // Update tab when route params change
+  useEffect(() => {
+    if (tab && TABS.includes(tab as TabType)) {
+      setActiveTab(tab as TabType);
+    }
+  }, [tab]);
+
   useEffect(() => {
     if (lastRegisteredId) {
-      const comp = COMPETITIONS.find(
-        (c) =>
-          c.id === lastRegisteredId,
-      );
-      setToast(
-        comp
-          ? `Registered for ${comp.title}`
-          : "Registered",
-      );
+      const reg = registrations.find((r) => r.compId === lastRegisteredId);
+      setToast(reg ? `Successfully registered: ${reg.competitionName} 🎉` : "Successfully registered!");
       setTimeout(() => {
-        clearLastRegistered &&
-          clearLastRegistered();
+        clearLastRegistered && clearLastRegistered();
         setToast(null);
-      }, 2500);
+      }, 3000);
     }
-  }, [
-    lastRegisteredId,
-    clearLastRegistered,
-  ]);
+  }, [lastRegisteredId, clearLastRegistered]);
 
-  const regsForTab =
-    registrations.filter((r) => {
-      if (activeTab === "Upcoming")
-        return (
-          r.status === "registered"
-        );
-      if (activeTab === "Ongoing")
-        return r.status === "paid";
-      return r.status === "completed";
-    });
+  const regsForTab = registrations.filter((r) => {
+    if (activeTab === "Upcoming") return r.status === "registered";
+    if (activeTab === "Ongoing") return r.status === "paid";
+    return r.status === "completed";
+  });
 
-  const items = regsForTab.map((r) => ({
-    ...r,
-    comp: COMPETITIONS.find(
-      (c) => c.id === r.compId,
-    ),
-  }));
+  const tabCounts = {
+    Upcoming: registrations.filter((r) => r.status === "registered").length,
+    Ongoing: registrations.filter((r) => r.status === "paid").length,
+    Completed: registrations.filter((r) => r.status === "completed").length,
+  };
 
   return (
     <View
       style={[
         styles.container,
-        {
-          paddingTop: insets.top + 16,
-          paddingBottom: 24,
-        },
+        { paddingTop: insets.top + 16, paddingBottom: 24 },
       ]}
     >
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>
-          My Competitions
-        </Text>
-        <Text style={styles.subtitle}>
-          Track your registrations &
-          results
-        </Text>
+        <Text style={styles.title}>My Registrations</Text>
+        <Text style={styles.subtitle}>Track your registrations & results</Text>
       </View>
 
       {toast && (
         <View style={styles.toast}>
-          <Text
-            style={styles.toastText}
-          >
-            {toast}
-          </Text>
+          <Text style={styles.toastText}>{toast}</Text>
         </View>
       )}
 
-      {/* Tab switcher */}
+      {/* Tab row with counts */}
       <View style={styles.tabRow}>
         {TABS.map((tab) => (
           <TouchableOpacity
             key={tab}
-            style={[
-              styles.tabBtn,
-              activeTab === tab &&
-                styles.tabBtnActive,
-            ]}
-            onPress={() =>
-              setActiveTab(tab)
-            }
+            style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
+            onPress={() => setActiveTab(tab)}
             activeOpacity={0.8}
           >
             <Text
               style={[
                 styles.tabBtnText,
-                activeTab === tab &&
-                  styles.tabBtnTextActive,
+                activeTab === tab && styles.tabBtnTextActive,
               ]}
             >
               {tab}
             </Text>
+            {tabCounts[tab] > 0 && (
+              <View
+                style={[
+                  styles.tabCount,
+                  activeTab === tab
+                    ? { backgroundColor: Brand.primary }
+                    : { backgroundColor: "#E2E8F0" },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.tabCountText,
+                    { color: activeTab === tab ? "#fff" : "#64748B" },
+                  ]}
+                >
+                  {tabCounts[tab]}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         ))}
       </View>
 
-      {items.length === 0 ? (
-        <View
-          style={styles.placeholder}
-        >
-          <Text
-            style={
-              styles.placeholderEmoji
-            }
-          >
-            📋
-          </Text>
-          <Text
-            style={
-              styles.placeholderTitle
-            }
-          >
-            No competitions yet
-          </Text>
-          <Text
-            style={
-              styles.placeholderText
-            }
-          >
-            Register for a competition
-            and it will
-            {"\n"}appear here to track
-            your journey.
+      {regsForTab.length === 0 ? (
+        <View style={styles.placeholder}>
+          <Text style={styles.placeholderEmoji}>📋</Text>
+          <Text style={styles.placeholderTitle}>No competitions yet</Text>
+          <Text style={styles.placeholderText}>
+            Register for competitions and everything{"\n"}will appear here.
           </Text>
         </View>
       ) : (
         <FlatList
-          data={items}
+          data={regsForTab}
           keyExtractor={(i) => i.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.regCard}
-              activeOpacity={0.8}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                }}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={async () => {
+                setRefreshing(true);
+                await refreshRegistrations();
+                setRefreshing(false);
+              }}
+              tintColor={Brand.primary}
+            />
+          }
+          renderItem={({ item }) => {
+            const category = (item.meta as any)?.category as string | undefined;
+            const accent = CategoryAccent[category ?? ""] ?? Brand.primary;
+            const catBg = CategoryBg[category ?? ""] ?? "#EEF2FF";
+            const emoji = CategoryEmoji[category ?? ""] ?? "🏆";
+
+            return (
+              <TouchableOpacity
+                style={[styles.regCard, { borderLeftColor: accent }]}
+                activeOpacity={0.8}
               >
-                <Text
-                  style={{
-                    fontSize: 32,
-                    marginRight: 12,
-                  }}
-                >
-                  {item.comp?.image ??
-                    "🏆"}
-                </Text>
-                <View>
-                  <Text
-                    style={{
-                      fontWeight: "800",
-                      color: "#0F172A",
-                    }}
-                  >
-                    {item.comp?.title ??
-                      "Unknown"}
-                  </Text>
-                  <Text
-                    style={{
-                      color: "#64748B",
-                      marginTop: 4,
-                    }}
-                  >
-                    {item.comp
-                      ?.organizer ?? ""}
-                  </Text>
+                <View style={styles.regCardInner}>
+                  <View style={[styles.regEmoji, { backgroundColor: catBg }]}>
+                    <Text style={{ fontSize: 24 }}>{emoji}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.regCardTitle} numberOfLines={2}>
+                      {item.competitionName}
+                    </Text>
+                    <Text style={styles.regCardFee}>
+                      {item.fee === 0
+                        ? "Free"
+                        : `Rp ${item.fee.toLocaleString("id-ID")}`}
+                    </Text>
+                    <StatusBadge status={item.status} />
+                  </View>
                 </View>
-              </View>
-              <View
-                style={{ marginTop: 8 }}
-              >
-                <Text
-                  style={{
-                    color: "#94A3B8",
-                  }}
-                >
-                  Status: {item.status}
-                </Text>
-                {item.status ===
-                  "registered" && (
+
+                {item.status === "registered" && item.fee > 0 && (
                   <TouchableOpacity
                     onPress={() =>
-                      markRegistrationPaid(
-                        item.id,
-                      )
+                      router.push({
+                        pathname: "/(payment)/pay",
+                        params: { registrationId: item.id },
+                      })
                     }
-                    style={{
-                      marginTop: 8,
-                      alignSelf:
-                        "flex-start",
-                    }}
+                    style={styles.payBtn}
                     activeOpacity={0.8}
                   >
-                    <Text
-                      style={{
-                        color:
-                          Brand.primary,
-                        fontWeight:
-                          "700",
-                      }}
-                    >
-                      Mark Paid
+                    <Text style={styles.payBtnText}>
+                      Continue Payment →
                     </Text>
                   </TouchableOpacity>
                 )}
-              </View>
-            </TouchableOpacity>
-          )}
-          ItemSeparatorComponent={() => (
-            <View
-              style={{ height: 12 }}
-            />
-          )}
+              </TouchableOpacity>
+            );
+          }}
         />
       )}
     </View>
@@ -269,52 +230,59 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
     paddingHorizontal: 20,
   },
-  header: {
-    marginBottom: 20,
+  header: { marginBottom: 20 },
+  title: { fontSize: 28, fontWeight: "800", color: "#0F172A", marginBottom: 4 },
+  subtitle: { fontSize: 14, color: "#64748B" },
+
+  toast: {
+    backgroundColor: "#065F46",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignSelf: "center",
+    marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#0F172A",
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#64748B",
-  },
+  toastText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+
   tabRow: {
     flexDirection: "row",
     backgroundColor: "#F1F5F9",
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 4,
-    marginBottom: 24,
+    marginBottom: 20,
     gap: 4,
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 9,
+    borderRadius: 11,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 5,
   },
   tabBtnActive: {
     backgroundColor: "#fff",
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
     shadowRadius: 4,
     elevation: 2,
   },
-  tabBtnText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#94A3B8",
+  tabBtnText: { fontSize: 13, fontWeight: "600", color: "#94A3B8" },
+  tabBtnTextActive: { color: Brand.primary },
+  tabCount: {
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
   },
-  tabBtnTextActive: {
-    color: Brand.primary,
-  },
+  tabCountText: { fontSize: 10, fontWeight: "800" },
+
   placeholder: {
     alignItems: "center",
     justifyContent: "center",
@@ -325,10 +293,7 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     borderStyle: "dashed",
   },
-  placeholderEmoji: {
-    fontSize: 52,
-    marginBottom: 16,
-  },
+  placeholderEmoji: { fontSize: 52, marginBottom: 16 },
   placeholderTitle: {
     fontSize: 18,
     fontWeight: "700",
@@ -341,23 +306,50 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
   },
+
   regCard: {
     backgroundColor: "#fff",
     padding: 14,
+    borderRadius: 14,
+    borderLeftWidth: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  regCardInner: { flexDirection: "row", alignItems: "flex-start" },
+  regEmoji: {
+    width: 48,
+    height: 48,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E6EEF8",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
   },
-  toast: {
-    backgroundColor: Brand.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignSelf: "center",
-    marginBottom: 12,
-  },
-  toastText: {
-    color: "#fff",
+  regCardTitle: {
+    fontSize: 15,
     fontWeight: "700",
+    color: "#0F172A",
+    lineHeight: 21,
   },
+  regCardFee: { fontSize: 13, color: "#64748B", marginTop: 3 },
+
+  statusBadge: {
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: "flex-start",
+    marginTop: 8,
+  },
+  statusText: { fontSize: 12, fontWeight: "700" },
+
+  payBtn: {
+    marginTop: 12,
+    backgroundColor: Brand.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  payBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 });

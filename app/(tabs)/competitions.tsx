@@ -1,15 +1,16 @@
 import {
-  CATEGORIES,
-  COMPETITIONS,
-} from "@/constants/competitions";
-import { Brand } from "@/constants/theme";
-import { useUser } from "@/context/UserContext";
+  Brand,
+  CategoryAccent,
+  CategoryBg,
+  CategoryEmoji,
+  GradeBg,
+  GradeText,
+} from "@/constants/theme";
+import { useUser } from "@/context/AuthContext";
 import { useRouter } from "expo-router";
-import React, {
-  useMemo,
-  useState,
-} from "react";
+import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
@@ -18,253 +19,344 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQuery } from "@tanstack/react-query";
+import * as competitionsService from "@/services/competitions.service";
+import { Analytics } from "@/services/analytics";
 
-function formatPrice(p: number) {
-  return p === 0
-    ? "Free"
-    : `Rp ${p.toLocaleString("id-ID")}`;
+const GRADES = ["SD", "SMP", "SMA"] as const;
+
+function formatPrice(fee: number) {
+  return fee === 0 ? "FREE" : `Rp ${fee.toLocaleString("id-ID")}`;
 }
 
-export default function CompetitionsScreen() {
-  const insets = useSafeAreaInsets();
-  const { user } = useUser();
-  // removed local router usage to avoid creating navigation side-effects here
-  const router = useRouter();
-  const [query, setQuery] =
-    useState("");
-  const [
-    activeCategory,
-    setActiveCategory,
-  ] = useState<string | null>(null);
-  const [gradeFilter, setGradeFilter] =
-    useState<string | null>(null);
+function formatDeadline(date: string | null) {
+  if (!date) return "-";
+  return new Date(date).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
-  const data = useMemo(() => {
-    return COMPETITIONS.filter((c) => {
-      if (
-        activeCategory &&
-        c.category !== activeCategory
-      )
-        return false;
-      if (
-        gradeFilter &&
-        !c.grade.includes(gradeFilter)
-      )
-        return false;
-      if (
-        query &&
-        !c.title
-          .toLowerCase()
-          .includes(query.toLowerCase())
-      )
+function getDeadlineStatus(
+  date: string | null
+): { label: string; color: string; bg: string } | null {
+  if (!date) return null;
+  const days = Math.ceil(
+    (new Date(date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  );
+  if (days < 0) return null;
+  if (days <= 3)
+    return { label: `‼ ${days} days left`, color: "#fff", bg: "#EF4444" };
+  if (days <= 7)
+    return {
+      label: `⚡ ${days} days left`,
+      color: "#92400E",
+      bg: "#FEF3C7",
+    };
+  if (days <= 14)
+    return { label: `${days} days left`, color: "#713F12", bg: "#FDE68A" };
+  return null;
+}
+
+/** Skeleton card shown while loading */
+function SkeletonCard() {
+  return (
+    <View style={[styles.card, styles.skeleton]}>
+      <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+        <View style={styles.skeletonCircle} />
+        <View style={{ flex: 1 }}>
+          <View style={styles.skeletonLine} />
+          <View style={[styles.skeletonLine, { width: "55%", marginTop: 8 }]} />
+          <View style={[styles.skeletonLine, { width: "35%", marginTop: 8 }]} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+export default function DiscoverScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { user } = useUser();
+  const [query, setQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [gradeFilter, setGradeFilter] = useState<string | null>(null);
+
+  const displayName =
+    (user as any)?.fullName?.split(" ")[0] ??
+    (user as any)?.name?.split(" ")[0] ??
+    "there";
+
+  const {
+    data: allCompetitions = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ["competitions"],
+    queryFn: () => competitionsService.list(),
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+
+  const categories = useMemo(() => {
+    const cats = [...new Set(allCompetitions.map((c) => c.category))].sort();
+    return cats;
+  }, [allCompetitions]);
+
+  const filtered = useMemo(() => {
+    return allCompetitions.filter((c) => {
+      if (activeCategory && c.category !== activeCategory) return false;
+      if (gradeFilter && !c.gradeLevel.includes(gradeFilter)) return false;
+      if (query && !c.name.toLowerCase().includes(query.toLowerCase()))
         return false;
       return true;
     });
-  }, [
-    query,
-    activeCategory,
-    gradeFilter,
-  ]);
+  }, [allCompetitions, query, activeCategory, gradeFilter]);
 
   const ListHeader = () => (
     <View>
-      <View style={styles.header}>
-        <Text style={styles.title}>
-          Competitions
-        </Text>
-        <Text style={styles.subtitle}>
-          Browse national &
-          international competitions
+      {/* Personalized greeting */}
+      <View style={styles.greeting}>
+        <Text style={styles.greetingText}>Hello, {displayName}! 👋</Text>
+        <Text style={styles.greetingSubtitle}>
+          {isLoading
+            ? "Finding competitions for you..."
+            : `${allCompetitions.length} competitions available for you`}
         </Text>
       </View>
 
-      <View style={styles.searchRow}>
-        <TextInput
-          placeholder="Search competitions"
-          value={query}
-          onChangeText={setQuery}
-          style={styles.searchInput}
-        />
-      </View>
+      {/* Search bar */}
+      <TextInput
+        placeholder="Search competitions..."
+        placeholderTextColor="#94A3B8"
+        value={query}
+        onChangeText={setQuery}
+        style={styles.searchInput}
+      />
 
-      <View style={styles.filterRow}>
+      {/* Category chips */}
+      {categories.length > 0 && (
         <FlatList
-          data={CATEGORIES}
+          data={categories}
           horizontal
-          showsHorizontalScrollIndicator={
-            false
-          }
-          keyExtractor={(c) => c.label}
-          renderItem={({ item: c }) => (
-            <Pressable
-              onPress={() =>
-                setActiveCategory(
-                  (p) =>
-                    p === c.label
-                      ? null
-                      : c.label,
-                )
-              }
-              style={[
-                styles.chip,
-                activeCategory ===
-                  c.label &&
-                  styles.chipActive,
-              ]}
-            >
-              <Text
-                style={styles.chipEmoji}
-              >
-                {c.emoji}
-              </Text>
-              <Text
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(c) => c}
+          contentContainerStyle={styles.chips}
+          renderItem={({ item: cat }) => {
+            const isActive = activeCategory === cat;
+            const accent = CategoryAccent[cat] ?? Brand.primary;
+            const bg = CategoryBg[cat] ?? "#F1F5F9";
+            return (
+              <Pressable
+                onPress={() =>
+                  setActiveCategory((p) => (p === cat ? null : cat))
+                }
                 style={[
-                  styles.chipLabel,
-                  activeCategory ===
-                    c.label &&
-                    styles.chipLabelActive,
+                  styles.chip,
+                  isActive
+                    ? { backgroundColor: accent, borderColor: accent }
+                    : { backgroundColor: bg, borderColor: "transparent" },
                 ]}
               >
-                {c.label}
-              </Text>
-            </Pressable>
-          )}
+                <Text style={styles.chipEmoji}>
+                  {CategoryEmoji[cat] ?? "🏆"}
+                </Text>
+                <Text
+                  style={[
+                    styles.chipLabel,
+                    { color: isActive ? "#fff" : accent },
+                  ]}
+                >
+                  {cat}
+                </Text>
+              </Pressable>
+            );
+          }}
         />
-      </View>
+      )}
 
+      {/* Grade filter */}
       <View style={styles.gradeRow}>
-        {["SD", "SMP", "SMA"].map(
-          (g) => (
+        {GRADES.map((g) => {
+          const isActive = gradeFilter === g;
+          return (
             <Pressable
               key={g}
-              onPress={() =>
-                setGradeFilter((p) =>
-                  p === g ? null : g,
-                )
-              }
+              onPress={() => setGradeFilter((p) => (p === g ? null : g))}
               style={[
                 styles.gradeBtn,
-                gradeFilter === g &&
-                  styles.gradeBtnActive,
+                isActive
+                  ? {
+                      backgroundColor: GradeBg[g],
+                      borderColor: GradeText[g],
+                    }
+                  : {},
               ]}
             >
               <Text
                 style={[
                   styles.gradeText,
-                  gradeFilter === g &&
-                    styles.gradeTextActive,
+                  { color: isActive ? GradeText[g] : "#64748B" },
                 ]}
               >
                 {g}
               </Text>
             </Pressable>
-          ),
-        )}
+          );
+        })}
       </View>
 
       <Text style={styles.sectionTitle}>
-        Available ({data.length})
+        {isLoading ? "Loading..." : `Available (${filtered.length})`}
       </Text>
     </View>
   );
 
+  if (isError) {
+    return (
+      <View
+        style={[styles.container, styles.center, { paddingTop: insets.top }]}
+      >
+        <Text style={styles.errorEmoji}>😕</Text>
+        <Text style={styles.errorText}>Failed to load competitions</Text>
+        <Pressable style={styles.retryBtn} onPress={() => refetch()}>
+          <Text style={styles.retryText}>Try Again</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
-    <View
-      style={[
-        styles.container,
-        { paddingTop: insets.top },
-      ]}
-    >
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <FlatList
-        data={data}
+        data={isLoading ? [] : filtered}
         keyExtractor={(i) => i.id}
-        renderItem={({ item }) => (
-          <Pressable
-            style={styles.card}
-            onPress={() => {
-              router.push({
-                pathname:
-                  "/(tabs)/competitions/[id]",
-                params: {
-                  id: item.id,
-                  from: "competitions",
-                },
-              });
-            }}
-          >
-            <View
-              style={styles.cardTop}
-            >
-              <Text
-                style={styles.cardEmoji}
-              >
-                {item.image}
+        ListHeaderComponent={ListHeader}
+        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          isLoading ? (
+            <View>
+              {[1, 2, 3, 4].map((k) => (
+                <View key={k}>
+                  <SkeletonCard />
+                  <View style={{ height: 12 }} />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.center}>
+              <Text style={{ fontSize: 40, marginBottom: 12 }}>🔍</Text>
+              <Text style={styles.emptyText}>No competitions found</Text>
+              <Text style={styles.emptySubtext}>
+                Try changing filters or keywords
               </Text>
-              <View
-                style={styles.cardInfo}
-              >
-                <Text
-                  style={
-                    styles.cardTitle
-                  }
+            </View>
+          )
+        }
+        renderItem={({ item }) => {
+          const accent = CategoryAccent[item.category] ?? Brand.primary;
+          const catBg = CategoryBg[item.category] ?? "#F5F8FF";
+          const emoji = CategoryEmoji[item.category] ?? "🏆";
+          const urgency = getDeadlineStatus(item.regCloseDate);
+          const grades = item.gradeLevel
+            .split(",")
+            .map((g) => g.trim())
+            .filter(Boolean);
+
+          return (
+            <Pressable
+              style={[styles.card, { borderLeftColor: accent }]}
+              onPress={() => {
+                Analytics.track("competition_viewed", {
+                  competitionId: item.id,
+                  name: item.name,
+                  category: item.category,
+                });
+                router.push({
+                  pathname: "/(tabs)/competitions/[id]",
+                  params: { id: item.id },
+                });
+              }}
+            >
+              <View style={styles.cardTop}>
+                {/* Emoji inside a colored circle */}
+                <View style={[styles.emojiCircle, { backgroundColor: catBg }]}>
+                  <Text style={styles.cardEmoji}>{emoji}</Text>
+                </View>
+
+                <View style={styles.cardInfo}>
+                  <Text style={styles.cardTitle} numberOfLines={2}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.cardOrg}>{item.organizerName}</Text>
+
+                  {/* Grade pills */}
+                  {grades.length > 0 && (
+                    <View style={styles.gradePillRow}>
+                      {grades.map((g) => (
+                        <View
+                          key={g}
+                          style={[
+                            styles.gradePill,
+                            { backgroundColor: GradeBg[g] ?? "#F1F5F9" },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.gradePillText,
+                              { color: GradeText[g] ?? "#475569" },
+                            ]}
+                          >
+                            {g}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Deadline urgency badge */}
+              {urgency && (
+                <View
+                  style={[
+                    styles.urgencyBadge,
+                    { backgroundColor: urgency.bg },
+                  ]}
                 >
-                  {item.title}
+                  <Text
+                    style={[styles.urgencyText, { color: urgency.color }]}
+                  >
+                    {urgency.label}
+                  </Text>
+                </View>
+              )}
+
+              {/* Deadline text (always) */}
+              {!urgency && item.regCloseDate && (
+                <Text style={styles.deadlineText}>
+                  Tutup {formatDeadline(item.regCloseDate)}
                 </Text>
-                <Text
-                  style={styles.cardOrg}
-                >
-                  {item.organizer}
-                </Text>
-                <Text
-                  style={
-                    styles.cardMeta
-                  }
-                >
-                  {item.category} ·{" "}
-                  {item.grade.join(
-                    ", ",
-                  )}{" "}
-                  · {item.deadline}
+              )}
+
+              <View style={styles.cardFooter}>
+                {item.fee === 0 ? (
+                  <View style={styles.gratisBadge}>
+                    <Text style={styles.gratisText}>GRATIS</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.cardPrice}>
+                    Rp {item.fee.toLocaleString("id-ID")}
+                  </Text>
+                )}
+                <Text style={[styles.cardAction, { color: accent }]}>
+                  View Details →
                 </Text>
               </View>
-            </View>
-            <View
-              style={styles.cardFooter}
-            >
-              <Text
-                style={styles.cardPrice}
-              >
-                {formatPrice(
-                  item.price,
-                )}
-              </Text>
-              <Pressable
-                onPress={() =>
-                  router.push(
-                    `/(tabs)/competitions/${item.id}`,
-                  )
-                }
-              >
-                <Text
-                  style={
-                    styles.cardAction
-                  }
-                >
-                  View
-                </Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        )}
-        ItemSeparatorComponent={() => (
-          <View
-            style={{ height: 12 }}
-          />
-        )}
-        ListHeaderComponent={ListHeader}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingBottom: 40,
+            </Pressable>
+          );
         }}
       />
     </View>
@@ -272,136 +364,171 @@ export default function CompetitionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, backgroundColor: "#F8FAFC" },
+  center: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
   },
-  header: {
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#64748B",
-    marginTop: 4,
-  },
-  searchRow: {
-    paddingHorizontal: 16,
-    marginTop: 12,
-  },
+  listContent: { paddingHorizontal: 16, paddingBottom: 40 },
+
+  // Greeting
+  greeting: { paddingHorizontal: 4, marginBottom: 16, marginTop: 14 },
+  greetingText: { fontSize: 26, fontWeight: "800", color: "#0F172A" },
+  greetingSubtitle: { fontSize: 14, color: "#64748B", marginTop: 4 },
+
+  // Search
   searchInput: {
     backgroundColor: "#fff",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    height: 46,
     borderWidth: 1,
     borderColor: "#E6EEF8",
+    fontSize: 14,
+    color: "#0F172A",
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  filterRow: {
-    marginTop: 12,
-    paddingVertical: 8,
-  },
+
+  // Category chips
+  chips: { paddingBottom: 10 },
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
+    marginRight: 8,
+    borderWidth: 1.5,
   },
-  chipActive: {
-    backgroundColor: Brand.primary,
-    borderColor: Brand.primary,
-  },
-  chipEmoji: { marginRight: 8 },
-  chipLabel: {
-    fontWeight: "600",
-    color: "#0F172A",
-  },
-  chipLabelActive: { color: "#fff" },
-  gradeRow: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 8,
-  },
+  chipEmoji: { marginRight: 5, fontSize: 14 },
+  chipLabel: { fontWeight: "700", fontSize: 13 },
+
+  // Grade filter
+  gradeRow: { flexDirection: "row", marginTop: 2, marginBottom: 10 },
   gradeBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 20,
     backgroundColor: "#fff",
-    marginRight: 10,
-    borderWidth: 1,
+    marginRight: 8,
+    borderWidth: 1.5,
     borderColor: "#E2E8F0",
   },
-  gradeBtnActive: {
-    backgroundColor: Brand.primary,
-    borderColor: Brand.primary,
-  },
-  gradeText: {
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-  gradeTextActive: { color: "#fff" },
+  gradeText: { fontWeight: "700", fontSize: 13 },
+
   sectionTitle: {
-    paddingHorizontal: 20,
     fontSize: 16,
     fontWeight: "800",
-    marginTop: 8,
-    marginBottom: 8,
+    color: "#0F172A",
+    marginTop: 4,
+    marginBottom: 12,
+    paddingHorizontal: 4,
   },
+
+  // Competition card
   card: {
     backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 12,
-    marginHorizontal: 0,
-    borderWidth: 1,
-    borderColor: "#E6EEF8",
+    borderRadius: 14,
+    padding: 14,
+    borderLeftWidth: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  cardTop: {
-    flexDirection: "row",
+  cardTop: { flexDirection: "row", alignItems: "flex-start" },
+  emojiCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
     alignItems: "center",
-  },
-  cardEmoji: {
-    fontSize: 36,
+    justifyContent: "center",
     marginRight: 12,
   },
+  cardEmoji: { fontSize: 26 },
   cardInfo: { flex: 1 },
   cardTitle: {
     fontSize: 15,
     fontWeight: "800",
     color: "#0F172A",
+    lineHeight: 21,
   },
-  cardOrg: {
-    fontSize: 12,
-    color: "#64748B",
-    marginTop: 4,
+  cardOrg: { fontSize: 12, color: "#64748B", marginTop: 3 },
+
+  // Grade pills
+  gradePillRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 6, gap: 4 },
+  gradePill: {
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
-  cardMeta: {
-    fontSize: 12,
-    color: "#94A3B8",
-    marginTop: 6,
+  gradePillText: { fontSize: 11, fontWeight: "700" },
+
+  // Deadline urgency
+  urgencyBadge: {
+    alignSelf: "flex-start",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: 10,
   },
+  urgencyText: { fontSize: 12, fontWeight: "700" },
+  deadlineText: { fontSize: 12, color: "#94A3B8", marginTop: 8 },
+
+  // Card footer
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
   },
-  cardPrice: {
-    fontWeight: "800",
-    color: "#0F172A",
+  gratisBadge: {
+    backgroundColor: "#D1FAE5",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
-  cardAction: {
-    color: Brand.primary,
-    fontWeight: "700",
+  gratisText: { color: "#065F46", fontWeight: "800", fontSize: 13 },
+  cardPrice: { fontWeight: "800", color: "#0F172A", fontSize: 14 },
+  cardAction: { fontWeight: "700", fontSize: 13 },
+
+  // Skeleton
+  skeleton: { opacity: 0.55 },
+  skeletonCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: "#E2E8F0",
+    marginRight: 12,
   },
+  skeletonLine: {
+    height: 14,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 6,
+    width: "80%",
+  },
+
+  // Error / empty
+  errorEmoji: { fontSize: 48, marginBottom: 12 },
+  errorText: { fontSize: 15, color: "#64748B", marginBottom: 16 },
+  retryBtn: {
+    backgroundColor: Brand.primary,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  retryText: { color: "#fff", fontWeight: "700" },
+  emptyText: { fontSize: 15, color: "#475569", fontWeight: "700" },
+  emptySubtext: { fontSize: 13, color: "#94A3B8", marginTop: 4 },
 });

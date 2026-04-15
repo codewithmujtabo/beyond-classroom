@@ -1,0 +1,132 @@
+KompetiApp — User Stories & Acceptance Criteria,,,,,,,,
+"Edit Story ID, Persona, Epic, Priority, Story, and Acceptance Criteria columns directly. Status and Notes are yours to manage.",,,,,,,,
+Story ID,Persona,Epic,Priority,User Story,Acceptance Criteria,Mobile Note,Status,Notes
+S01,Student (P1),Discovery,Must,"As a student, I want to browse competitions by category and grade level so that I can quickly find relevant ones without scrolling through irrelevant results.","1. Category filter tabs: Academic, Arts, Sports, Debate
+2. Grade filter: SD / SMP / SMA
+3. Filtered results update without full page reload
+4. Each card shows: name, organizer, deadline, fee, category badge",Filters persist across sessions; filter chips visible above fold on 360px screens,In Progress,
+S02,Student (P1),Discovery,Must,"As a student, I want to view full competition details so that I can decide whether to register before committing.","1. Detail page shows: name, organizer, deadline, fee, competition date, format, location, required docs, eligibility
+2. Register CTA is above the fold on mobile
+3. If quota full or closed, CTA replaced with disabled state + explanation",Renders fully on 360px without horizontal scroll; skeleton loader within 300ms,Backlog,
+S03,Student (P1),Profile & Docs,Must,"As a student, I want to create my profile once so that my details auto-fill into every future registration.","1. Fields: full name, date of birth, NISN, school, grade, phone, photo
+2. Profile auto-fills all future registration forms
+3. Edits do not affect past submitted registrations
+4. All mandatory fields validated before saving",Phone verified via OTP on sign-up; camera permission requested only for photo upload,Backlog,
+S04,Student (P1),Profile & Docs,Must,"As a student, I want to upload documents once and reuse them across registrations so that I never repeat the same upload.","1. Supported: JPG, PNG, PDF up to 10MB
+2. Docs labelled by type: student ID, report card, recommendation letter
+3. One-tap attachment during registration from stored vault
+4. Docs encrypted at rest; accessible only by student and target organizer",Camera capture + gallery import; compressed to <2MB client-side before upload,Backlog,
+S05,Student (P1),Registration,Must,"As a student, I want to complete a competition registration in under 3 minutes so that the process feels as easy as online shopping.","1. Form pre-filled from profile (name, school, grade, NISN)
+2. Required docs shown as checklist; student selects from vault
+3. Review screen shown before submission
+4. Unique registration number issued on submit
+5. Confirmation sent via push notification and WhatsApp",Single-column layout; each step has a progress indicator; no back-navigation mid-payment,Backlog,
+S06,Student (P1),Payment,Must,"As a student, I want to pay using GoPay, OVO, or bank transfer so that I can use my preferred local payment method.","1. Payment options: GoPay, OVO, Dana, BCA VA, Mandiri VA
+2. GoPay/OVO deep-links into wallet app and returns automatically on success
+3. Bank transfer shows virtual account number with 24-hour expiry
+4. Payment status updates automatically — no manual confirmation
+5. Receipt PDF available after payment",Deep-link return works on iOS and Android; falls back to in-app browser if deep-link fails,Backlog,
+S07,Student (P1),Tracker,Must,"As a student, I want to track all my registrations in one dashboard so that I always know what is pending, paid, or confirmed.","1. Statuses: Draft / Submitted / Paid / Confirmed / Rejected
+2. Tapping a registration shows full detail and receipt
+3. Rejected entries show the organizer reason
+4. Default sort: soonest deadline first",Color-coded status badges; pull-to-refresh supported; renders on 360px,Backlog,
+S08,Student (P1),Tracker,Should,"As a student, I want push notification reminders before registration deadlines so that I never miss the cut-off.","1. Notification at 9am local time, 3 days before deadline
+2. Second notification at 9am local time, 1 day before deadline
+3. Only sent if registration is not yet completed
+4. Tapping notification deep-links to that competition's registration screen
+5. User can disable per-competition reminders in settings",Works when app is backgrounded; fallback to in-app inbox if push permission denied,Backlog,
+S09,Parent (P2),Parent Linking,Should,"As a parent, I want to link my account to my child's profile so that I can monitor registrations and pay on their behalf.","1. Link request sent using child's phone number
+2. Child must approve the link
+3. Parent sees read-only view of child's registration dashboard
+4. Parent can initiate and complete payment for pending registrations
+5. One parent account supports multiple children",Link request sent via WA/SMS if child is not in app; approval requires child confirmation,Backlog,
+S10,Parent (P2),Notifications,Should,"As a parent, I want WhatsApp updates on my child's registration status so that I stay informed without opening the app.","1. WA message on: registration confirmed, payment received, organizer approval/rejection
+2. Message includes competition name, child name, and deep-link to app
+3. Parent can opt out of WA notifications in settings
+4. Uses WhatsApp Business API pre-approved template messages",WA deep-link opens app if installed; falls back to web view,Backlog,
+S11,Teacher / Admin (P3),Bulk Registration,Must,"As a teacher, I want to register multiple students for the same competition in one session so that I do not repeat the process individually.","1. Select multiple students from school roster in one screen
+2. Shared fields filled once and applied to all
+3. Student docs pulled automatically from each vault
+4. Payment can be batched or split per student
+5. Summary screen before confirming bulk submission",Optimized for tablet (768px+); mobile supports up to 10 students at once,Backlog,
+S12,Teacher / Admin (P3),School Dashboard,Should,"As a school admin, I want a dashboard of all students' registrations so that I have a full audit trail.","1. Shows: student name, competition, status, payment status, submission date
+2. Filterable by competition, status, and grade
+3. Exportable to CSV
+4. Admin can view but not modify individual registrations",Table view on desktop/tablet; card list on mobile,Backlog,
+S13,Organizer (P4),Organizer Portal,Must,"As an organizer, I want to create and publish a competition listing so that students can discover and register through the platform.","1. Required fields: name, category, education level, reg open/close dates, competition date, entry fee, quota, required docs, eligibility
+2. Save as draft before publishing
+3. Published listing appears in student feed within 15 minutes
+4. Organizer can edit listing after publishing without affecting existing registrations
+5. Must accept platform terms before first listing",Web portal only; mobile-responsive,Backlog,
+S14,Organizer (P4),Organizer Portal,Must,"As an organizer, I want to review and approve or reject registrations so that I can control who participates.","1. Dashboard lists all registrations with status and submitted documents
+2. Approve or reject with mandatory reason for rejection
+3. Rejection reason auto-communicated to student via push + WA
+4. Bulk-approve all paid and complete registrations
+5. Confirmed registrations are locked for the student",Web portal only,Backlog,
+S15,Organizer (P4),Organizer Portal,Must,"As an organizer, I want to export a confirmed participant list so that I can use it for logistics.","1. Export as CSV and PDF
+2. Fields: student name, NISN, school, grade, category, reg date, payment status
+3. Filtered to confirmed only by default
+4. Available once at least 1 registration is confirmed",Web portal only,Backlog,
+R01,Representative (P5),Onboarding,Won't (v2),"As a representative, I want to register as a regional partner so that I can be authorized to promote competitions and manage schools in my area.","1. Submit application: name, organization, region/country, contact
+2. Platform admin reviews and approves/rejects
+3. Approved rep receives partner dashboard access
+4. Rep assigned a region scope limiting visibility
+5. Rep receives unique partner code for attribution tracking",Application form web-based; dashboard mobile-responsive,Deferred,v2 scope
+R02,Representative (P5),School Management,Won't (v2),"As a representative, I want to manage school accounts in my region so that I can onboard schools and keep their information up to date.","1. Add, edit, deactivate school accounts within assigned region
+2. School admin receives invite email/WA to join under rep's region
+3. Rep sees list of all managed schools with account status
+4. Rep cannot access or modify student personal data",School management is web portal only,Deferred,v2 scope
+R03,Representative (P5),Registration Oversight,Won't (v2),"As a representative, I want to collect and forward registrations from schools in my region so that I act as the verified regional intermediary.","1. Rep dashboard shows all registrations from schools in their region
+2. Rep can mark a batch as 'forwarded to organizer'
+3. Organizer sees forwarding status in participant list
+4. Rep cannot modify registration content — view and forward only
+5. Audit log tracks every forwarding action",Web portal only; mobile-responsive for status checking,Deferred,v2 scope
+R04,Representative (P5),Regional Payment,Won't (v2),"As a representative, I want to handle regional payment collection so that schools in my area can pay through me rather than individually.","1. Rep generates consolidated payment invoice per competition per region
+2. Schools pay via platform-generated virtual account
+3. Rep confirms receipt; platform marks registrations as paid
+4. Rep payout processed after competition registration closes
+5. All transactions logged with rep ID for audit",Invoice generation web portal only; payment status visible on mobile,Deferred,v2 scope
+R05,Representative (P5),Promotion,Won't (v2),"As a representative, I want to share competition listings with schools in my region so that I can actively promote events I partner on.","1. Rep generates shareable link or WA-ready message for any published competition
+2. Shared link includes rep's partner code for attribution
+3. Rep dashboard shows click and registration counts from their shares
+4. Rep cannot create or edit competition listings — promotion only",Share to WA is primary action; deep-link routes student to competition detail page,Deferred,v2 scope
+E01,Student (P1),Personalized discovery,Must,"As a student, I want to see competition recommendations based on my registration history so that I discover relevant competitions I might have missed.","1. A ""Recommended for you"" section appears at the top of the Discover tab after a student's first registration
+2. Recommendations are filtered to match the student's grade level — no out-of-grade competitions shown
+3. Already-registered competitions are never shown in recommendations
+4. Expired or closed competitions are never shown
+5. If fewer than 3 recommendations exist, section is hidden — not shown with empty or irrelevant results
+6. Student can tap ""Not interested"" on any recommendation card to remove it permanently","""Recommended for you"" section hidden until student has at least 1 completed registration. Renders above the fold on 360px screens.",To do,
+E02,Student (P1),Post-registration nudge,Must,"As a student, I want to receive a push notification after registering for a competition that shows similar competitions so that I can keep exploring without having to search.","1. Push notification sent 30 minutes after payment confirmed (not on submission — only after paid)
+2. Notification includes the name of 1 recommended competition and its deadline
+3. Tapping the notification deep-links directly to that competition's detail page
+4. If push permission is denied, in-app banner shown instead on next app open
+5. Max 1 post-registration recommendation push per day — not one per registration if multiple are done",Push respects global 2/day cap and 10pm–8am silent hours. In-app banner fallback if push denied.,To do,
+E03,Student (P1),New competition alert,Must,"As a student, I want to be notified when a new competition matching my interests is published so that I never miss a registration window.","1. Alert sent within 1 hour of an organizer publishing a new competition
+2. Alert only sent if competition matches student's grade AND at least 1 past registration category
+3. Maximum 1 new competition push notification per day — batch multiple matches into one message
+4. Student can disable ""new competition"" alerts separately from other notification types in settings
+5. Same competition is never sent twice to the same student",Match threshold: grade match + ≥1 category match required. Batched into 1 push/day maximum.,To do,
+E04,Student (P1),Deadline urgency nudge,Must,"As a student, I want to receive a reminder about competitions I viewed but did not register for when the deadline is approaching so that I don't miss competitions I was interested in.","1. Reminder fires if student viewed competition detail for ≥10 seconds and has NOT registered
+2. First reminder: 3 days before registration deadline at 9am local time
+3. Second reminder: 1 day before deadline at 9am local time
+4. Reminders stop immediately if student registers or taps ""Not interested""
+5. Max 2 reminders per competition per student — never more
+6. Delivered via push first; WhatsApp fallback if push is denied or undelivered","View duration tracked in analytics (≥10s threshold). Push first, WA fallback. Silent hours enforced.",To do,
+E05,Student (P1),Weekly WA + email digest,Should,"As a student, I want to receive a weekly summary of competitions matching my interests via WhatsApp or email so that I stay informed without opening the app every day.","1. Digest sent every Sunday at 9am local time
+2. Content: top 5 matched competitions + up to 2 closing within 7 days (deadline urgency)
+3. WA message uses pre-approved Meta template — plain text with competition names, deadlines, and one deep-link
+4. Email uses HTML template with competition cards, fee badges, and individual Register CTAs
+5. Student can opt out of digest independently — does not affect transactional notifications
+6. Digest skipped if fewer than 3 matching competitions exist that week
+7. Email must include unsubscribe link (legal requirement — UU PDP)",WA template requires Meta pre-approval (1–3 days). Email needs unsubscribe link. Digest counts toward 2 WA/week cap.,To do,
+E06,Student (P1),In-app notification centre,Must,"As a student, I want an in-app notification centre where I can see all past announcements and recommendations so that I never miss anything even if I dismissed a push notification.","1. Notification centre accessible from a bell icon in the app header on all main screens
+2. Shows all notifications: recommendations, announcements, registration updates — sorted newest first
+3. Unread notifications show a badge count on the bell icon (max display: 99+)
+4. Tapping any notification item navigates to the relevant competition or screen
+5. Notifications older than 30 days are automatically archived (not deleted)
+6. Student can mark all as read, or delete individual notifications",Bell icon + badge visible on all 3 main tabs. Serves as fallback inbox when push permission is denied.,To do,
+E07,Student (P1),Notification preferences,Must,"As a student, I want granular control over which notifications I receive and on which channels so that I can stay informed without feeling spammed.","1. Settings screen shows separate toggles for: New competition alerts / Post-registration recommendations / Deadline reminders / Weekly digest / Platform announcements
+2. Each type has per-channel sub-toggle: Push / WhatsApp / Email
+3. Transactional notifications (registration confirmed, payment received) cannot be turned off — only delivery channel can change
+4. Student can set a ""quiet hours"" window — no push notifications sent during that time
+5. Preferences saved server-side — persist across devices and app reinstalls",Quiet hours default: 10pm–8am. Transactional notifications always delivered regardless of preferences.,To do,

@@ -20,4 +20,10 @@ export const env = {
   SMTP_PASS: process.env.SMTP_PASS || "",
   SMTP_FROM: process.env.SMTP_FROM || "Beyond Classroom <noreply@beyondclassroom.id>",
   OTP_EXPIRY_MINUTES: parseInt(process.env.OTP_EXPIRY_MINUTES || "10", 10),
+  TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID || "",
+  TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN || "",
+  TWILIO_VERIFY_SID: process.env.TWILIO_VERIFY_SID || "",
+  MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY || "",
+  MIDTRANS_CLIENT_KEY: process.env.MIDTRANS_CLIENT_KEY || "",
+  MIDTRANS_IS_PRODUCTION: process.env.MIDTRANS_IS_PRODUCTION === "true",
 };

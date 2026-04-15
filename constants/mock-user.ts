@@ -29,6 +29,39 @@ export interface AppUser {
   childName?: string;
   childSchool?: string;
   childLevel?: GradeLevel;
+
+  // ── Sprint 2: Enhanced student profile fields ─────────────────────────────
+  // Student details
+  fullName?: string;
+  dateOfBirth?: string;
+  interests?: string;
+  referralSource?: string;
+  studentCardUrl?: string;
+  nisn?: string;
+
+  // School details
+  schoolName?: string;
+  npsn?: string;
+  schoolAddress?: string;
+  schoolEmail?: string;
+  schoolWhatsapp?: string;
+  schoolPhone?: string;
+
+  // Supervisor details
+  supervisorName?: string;
+  supervisorEmail?: string;
+  supervisorWhatsapp?: string;
+  supervisorPhone?: string;
+  supervisorSchoolId?: string;
+  supervisorLinked?: boolean;
+
+  // Parent details
+  parentName?: string;
+  parentOccupation?: string;
+  parentWhatsapp?: string;
+  parentPhone?: string;
+  parentSchoolId?: string;
+  parentLinked?: boolean;
 }
 
 export const MOCK_USER: AppUser = {
