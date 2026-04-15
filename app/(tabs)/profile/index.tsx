@@ -52,17 +52,17 @@ export default function ProfileScreen() {
     {
       emoji: "🔔",
       label: "Notifications",
-      onPress: () => {},
+      onPress: () => router.push("/(tabs)/notifications"),
     },
     {
       emoji: "⚙️",
       label: "Account Settings",
-      onPress: () => {},
+      onPress: () => {}, // TODO: Implement in future sprint
     },
     {
       emoji: "❓",
       label: "Help & FAQ",
-      onPress: () => {},
+      onPress: () => {}, // TODO: Implement in future sprint
     },
   ];
 
