@@ -1,5 +1,6 @@
 import { AppInput } from "@/components/common/AppInput";
 import { Brand } from "@/constants/theme";
+import { INTEREST_CATEGORIES } from "@/constants/interests";
 import { useUser } from "@/context/AuthContext";
 import * as usersService from "@/services/users.service";
 import * as ImagePicker from "expo-image-picker";
@@ -64,6 +65,8 @@ export default function ProfileEditScreen() {
   // Student details
   const [dateOfBirth, setDateOfBirth] = useState(formatDateForDisplay((user as any)?.dateOfBirth) || "");
   const [interests, setInterests] = useState((user as any)?.interests || "");
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [otherInterest, setOtherInterest] = useState("");
   const [referralSource, setReferralSource] = useState((user as any)?.referralSource || "");
   const [studentCardUrl, setStudentCardUrl] = useState((user as any)?.studentCardUrl || null);
 
@@ -101,6 +104,25 @@ export default function ProfileEditScreen() {
       setPhotoUrl(u.photoUrl || u.avatarUrl || null);
       setDateOfBirth(formatDateForDisplay(u.dateOfBirth) || "");
       setInterests(u.interests || "");
+
+      // Sprint 4, Track F (T18) - Parse existing interests
+      if (u.interests) {
+        const parsed = u.interests.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
+        const matched: string[] = [];
+        const unmatched: string[] = [];
+
+        for (const interest of parsed) {
+          if (INTEREST_CATEGORIES.includes(interest as any)) {
+            matched.push(interest);
+          } else {
+            unmatched.push(interest);
+          }
+        }
+
+        setSelectedInterests(matched);
+        setOtherInterest(unmatched.join(", "));
+      }
+
       setReferralSource(u.referralSource || "");
       setStudentCardUrl(u.studentCardUrl || null);
       setSchoolName(u.schoolName || u.school || "");
@@ -174,6 +196,13 @@ export default function ProfileEditScreen() {
       return;
     }
 
+    // Sprint 4, Track F (T18) - Combine selected interests with other
+    const allInterests = [...selectedInterests];
+    if (otherInterest.trim()) {
+      allInterests.push(otherInterest.trim());
+    }
+    const interestsString = allInterests.join(", ");
+
     setSaving(true);
     try {
       await usersService.updateProfile({
@@ -181,7 +210,7 @@ export default function ProfileEditScreen() {
         phone,
         city,
         dateOfBirth: dateOfBirth ? formatDateForBackend(dateOfBirth) : undefined,
-        interests: interests || undefined,
+        interests: interestsString || undefined,
         referralSource: referralSource || undefined,
         schoolName: schoolName || undefined,
         grade: grade || undefined,
@@ -293,12 +322,46 @@ export default function ProfileEditScreen() {
             keyboardType="email-address"
             editable={false}
           />
-          <AppInput
-            label="Interests (comma-separated)"
-            placeholder="e.g., Math, Science, Arts"
-            value={interests}
-            onChangeText={setInterests}
-          />
+          {/* Sprint 4, Track F (T17) - Interest picker with chips */}
+          <View>
+            <Text style={styles.inputLabel}>Interests</Text>
+            <View style={styles.interestChips}>
+              {INTEREST_CATEGORIES.map((category) => {
+                const isSelected = selectedInterests.includes(category);
+                return (
+                  <TouchableOpacity
+                    key={category}
+                    style={[
+                      styles.interestChip,
+                      isSelected && styles.interestChipSelected,
+                    ]}
+                    onPress={() => {
+                      if (isSelected) {
+                        setSelectedInterests(selectedInterests.filter((i) => i !== category));
+                      } else {
+                        setSelectedInterests([...selectedInterests, category]);
+                      }
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.interestChipText,
+                        isSelected && styles.interestChipTextSelected,
+                      ]}
+                    >
+                      {category}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <AppInput
+              label="Other Interests (optional)"
+              placeholder="e.g., Robotics, Gaming"
+              value={otherInterest}
+              onChangeText={setOtherInterest}
+            />
+          </View>
           <AppInput
             label="Referral"
             placeholder="How did you hear about us?"
@@ -522,6 +585,40 @@ const styles = StyleSheet.create({
 
   section: { marginBottom: 24, gap: 12 },
   sectionTitle: { fontSize: 18, fontWeight: "700", color: "#0F172A", marginBottom: 4 },
+
+  // Sprint 4, Track F (T17) - Interest chips
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#334155",
+    marginBottom: 8,
+  },
+  interestChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 12,
+  },
+  interestChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1.5,
+    borderColor: "#E2E8F0",
+  },
+  interestChipSelected: {
+    backgroundColor: Brand.primary,
+    borderColor: Brand.primary,
+  },
+  interestChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  interestChipTextSelected: {
+    color: "#fff",
+  },
 
   cardPreview: {
     backgroundColor: "#fff",

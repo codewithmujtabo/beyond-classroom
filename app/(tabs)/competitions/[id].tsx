@@ -8,7 +8,7 @@ import {
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -48,6 +48,7 @@ export default function CompetitionDetailPage() {
   const insets = useSafeAreaInsets();
   const { registrations, registerCompetition } = useUser();
   const [activeTab, setActiveTab] = useState<"overview" | "registration" | "payment">("overview");
+  const viewStartTime = useRef<number | null>(null);
 
   const { data: comp, isLoading, isError } = useQuery({
     queryKey: ["competition", id],
@@ -63,6 +64,24 @@ export default function CompetitionDetailPage() {
         category: comp.category,
       });
     }
+  }, [comp?.id]);
+
+  // Sprint 4, Track A (T3) - Track view duration
+  useEffect(() => {
+    // Record start time when component mounts
+    viewStartTime.current = Date.now();
+
+    // Track view duration on unmount
+    return () => {
+      if (viewStartTime.current && comp?.id) {
+        const duration = Math.floor((Date.now() - viewStartTime.current) / 1000);
+
+        // Only track if user spent >= 10 seconds (filter accidental clicks)
+        if (duration >= 10) {
+          competitionsService.trackView(comp.id, duration);
+        }
+      }
+    };
   }, [comp?.id]);
 
   // Reset tab when id changes

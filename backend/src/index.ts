@@ -17,6 +17,8 @@ import registrationsRoutes from "./routes/registrations.routes";
 import documentsRoutes from "./routes/documents.routes";
 import competitionsRoutes from "./routes/competitions.routes";
 import paymentsRoutes from "./routes/payments.routes";
+import notificationsRoutes from "./routes/notifications.routes";
+import { initializeCronJobs } from "./services/cron.service";
 
 const app = express();
 
@@ -38,6 +40,7 @@ app.use("/api/registrations", registrationsRoutes);
 app.use("/api/documents", documentsRoutes);
 app.use("/api/competitions", competitionsRoutes);
 app.use("/api/payments", paymentsRoutes);
+app.use("/api/notifications", notificationsRoutes);
 
 // Sentry error handler must come before our own error handler
 Sentry.setupExpressErrorHandler(app);
@@ -47,6 +50,9 @@ app.use(errorHandler);
 
 app.listen(env.PORT, () => {
   console.log(`Beyond Classroom API running on port ${env.PORT}`);
+
+  // Initialize Sprint 4 cron jobs
+  initializeCronJobs();
 });
 
 export default app;

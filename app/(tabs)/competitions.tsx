@@ -78,7 +78,7 @@ function SkeletonCard() {
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user } = useUser();
+  const { user, registrations } = useUser();
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
@@ -97,6 +97,17 @@ export default function DiscoverScreen() {
     queryKey: ["competitions"],
     queryFn: () => competitionsService.list(),
     staleTime: 24 * 60 * 60 * 1000,
+  });
+
+  // Sprint 4, Track B (T7) - Fetch personalized recommendations
+  const {
+    data: recommendations = [],
+    isLoading: isLoadingRecommendations,
+  } = useQuery({
+    queryKey: ["recommendations"],
+    queryFn: () => competitionsService.getRecommended(10),
+    staleTime: 60 * 60 * 1000, // 1 hour
+    enabled: registrations.length > 0, // Only fetch if user has registrations
   });
 
   const categories = useMemo(() => {
@@ -125,6 +136,86 @@ export default function DiscoverScreen() {
             : `${allCompetitions.length} competitions available for you`}
         </Text>
       </View>
+
+      {/* Sprint 4, Track B (T8) - Recommended for you section */}
+      {registrations.length > 0 && recommendations.length > 0 && (
+        <View style={styles.recommendedSection}>
+          <View style={styles.recommendedHeader}>
+            <Text style={styles.recommendedTitle}>✨ Recommended for you</Text>
+            <Text style={styles.recommendedSubtitle}>
+              Based on your interests and registrations
+            </Text>
+          </View>
+          <FlatList
+            data={recommendations}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.recommendedList}
+            renderItem={({ item }) => {
+              const accent = CategoryAccent[item.category] ?? Brand.primary;
+              const catBg = CategoryBg[item.category] ?? "#F5F8FF";
+              const emoji = CategoryEmoji[item.category] ?? "🏆";
+              const urgency = getDeadlineStatus(item.reg_close_date);
+
+              return (
+                <Pressable
+                  style={[styles.recommendedCard, { borderLeftColor: accent }]}
+                  onPress={() => {
+                    Analytics.track("recommendation_clicked", {
+                      competitionId: item.id,
+                      name: item.name,
+                      category: item.category,
+                      score: item.score,
+                    });
+                    router.push({
+                      pathname: "/(tabs)/competitions/[id]",
+                      params: { id: item.id },
+                    });
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.recommendedEmoji,
+                      { backgroundColor: catBg },
+                    ]}
+                  >
+                    <Text style={{ fontSize: 24 }}>{emoji}</Text>
+                  </View>
+                  <Text style={styles.recommendedCardTitle} numberOfLines={2}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.recommendedCardOrg} numberOfLines={1}>
+                    {item.organizer_name}
+                  </Text>
+                  {urgency && (
+                    <View
+                      style={[
+                        styles.recommendedUrgency,
+                        { backgroundColor: urgency.bg },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.recommendedUrgencyText,
+                          { color: urgency.color },
+                        ]}
+                      >
+                        {urgency.label}
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={[styles.recommendedCardPrice, { marginTop: 8 }]}>
+                    {item.fee === 0
+                      ? "FREE"
+                      : `Rp ${item.fee.toLocaleString("id-ID")}`}
+                  </Text>
+                </Pressable>
+              );
+            }}
+          />
+        </View>
+      )}
 
       {/* Search bar */}
       <TextInput
@@ -377,6 +468,69 @@ const styles = StyleSheet.create({
   greeting: { paddingHorizontal: 4, marginBottom: 16, marginTop: 14 },
   greetingText: { fontSize: 26, fontWeight: "800", color: "#0F172A" },
   greetingSubtitle: { fontSize: 14, color: "#64748B", marginTop: 4 },
+
+  // Recommended section (Sprint 4, Track B, T8)
+  recommendedSection: { marginBottom: 16 },
+  recommendedHeader: { paddingHorizontal: 4, marginBottom: 12 },
+  recommendedTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  recommendedSubtitle: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
+  },
+  recommendedList: { paddingBottom: 4 },
+  recommendedCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 12,
+    marginRight: 12,
+    width: 180,
+    borderLeftWidth: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  recommendedEmoji: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  recommendedCardTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#0F172A",
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  recommendedCardOrg: {
+    fontSize: 11,
+    color: "#64748B",
+  },
+  recommendedUrgency: {
+    alignSelf: "flex-start",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginTop: 6,
+  },
+  recommendedUrgencyText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  recommendedCardPrice: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
 
   // Search
   searchInput: {
