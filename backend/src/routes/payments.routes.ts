@@ -4,6 +4,7 @@ import { pool } from "../config/database";
 import { env } from "../config/env";
 import { authMiddleware } from "../middleware/auth";
 import { createSnapToken } from "../services/midtrans.service";
+import * as pushService from "../services/push.service";
 
 const router = Router();
 
@@ -87,6 +88,53 @@ router.post("/webhook", async (req: Request, res: Response) => {
         `UPDATE registrations SET status = $1 WHERE id = $2`,
         [newRegStatus, registration_id]
       );
+
+      // Sprint 4, Track C (T10) — Schedule post-registration nudge
+      // Get registration details for the notification
+      const regResult = await pool.query(
+        `SELECT r.user_id, r.comp_id, c.name as comp_name
+         FROM registrations r
+         JOIN competitions c ON c.id = r.comp_id
+         WHERE r.id = $1`,
+        [registration_id]
+      );
+
+      if (regResult.rows.length > 0) {
+        const { user_id, comp_id, comp_name } = regResult.rows[0];
+
+        // Send immediate payment confirmation notification
+        await pushService.sendPushNotification(
+          user_id,
+          "Payment Confirmed!",
+          `Your payment for ${comp_name} has been confirmed. You're all set!`,
+          {
+            type: "payment_success",
+            compId: comp_id,
+            registrationId: registration_id,
+          }
+        );
+
+        // Schedule notification for 30 minutes later
+        const scheduledFor = new Date(Date.now() + 30 * 60 * 1000);
+
+        await pool.query(
+          `INSERT INTO notifications
+           (user_id, type, title, body, data, scheduled_for, sent)
+           VALUES ($1, $2, $3, $4, $5, $6, FALSE)`,
+          [
+            user_id,
+            "post_registration_nudge",
+            "More competitions you might like",
+            `Based on ${comp_name}, we found similar competitions for you.`,
+            JSON.stringify({ compId: comp_id }),
+            scheduledFor,
+          ]
+        );
+
+        console.log(
+          `Scheduled post-registration nudge for user ${user_id} at ${scheduledFor.toISOString()}`
+        );
+      }
     }
 
     console.log(

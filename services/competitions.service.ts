@@ -57,3 +57,37 @@ export async function get(id: string): Promise<Competition> {
   const data = await apiRequest<any>(`/competitions/${id}`, { auth: false });
   return mapRow(data);
 }
+
+/**
+ * Track a competition view (Sprint 4, Track A, T3)
+ * @param compId - Competition ID
+ * @param duration - View duration in seconds
+ */
+export async function trackView(compId: string, duration: number): Promise<void> {
+  try {
+    await apiRequest(`/competitions/${compId}/view`, {
+      method: "POST",
+      body: JSON.stringify({ duration }),
+      auth: true,
+    });
+  } catch (error) {
+    console.warn("Failed to track view:", error);
+    // Don't throw - tracking failures shouldn't break the UI
+  }
+}
+
+/**
+ * Get personalized recommendations (Sprint 4, Track B, T7)
+ * @param limit - Number of recommendations to fetch
+ */
+export async function getRecommended(limit: number = 10): Promise<Competition[]> {
+  try {
+    const data = await apiRequest<any[]>(`/competitions/recommended?limit=${limit}`, {
+      auth: true,
+    });
+    return (data ?? []).map(mapRow);
+  } catch (error) {
+    console.warn("Failed to fetch recommendations:", error);
+    return [];
+  }
+}

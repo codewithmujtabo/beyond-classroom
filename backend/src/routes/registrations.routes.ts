@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { pool } from "../config/database";
 import { authMiddleware } from "../middleware/auth";
+import * as pushService from "../services/push.service";
 
 const router = Router();
 router.use(authMiddleware);
@@ -58,6 +59,27 @@ router.post("/", async (req: Request, res: Response) => {
       `INSERT INTO registrations (id, user_id, comp_id, status, meta)
        VALUES ($1, $2, $3, $4, $5)`,
       [id, req.userId, compId, initialStatus, meta ? JSON.stringify(meta) : null]
+    );
+
+    // Get competition name for notification
+    const compNameResult = await pool.query(
+      "SELECT name FROM competitions WHERE id = $1",
+      [compId]
+    );
+    const competitionName = compNameResult.rows[0]?.name || "Competition";
+
+    // Create notification for registration
+    await pushService.sendPushNotification(
+      req.userId!,
+      "Registration Successful!",
+      `You have successfully registered for ${competitionName}. ${
+        isFree ? "Your registration is confirmed!" : "Complete payment to confirm your spot."
+      }`,
+      {
+        type: "registration_created",
+        compId,
+        registrationId: id,
+      }
     );
 
     res.status(201).json({ message: "Registration created", id, status: initialStatus });
