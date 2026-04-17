@@ -147,7 +147,3 @@ Check logs for:
 - `competition_viewed` - Enhanced with view duration
 
 ---
-
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
