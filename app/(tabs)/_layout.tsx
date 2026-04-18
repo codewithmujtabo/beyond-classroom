@@ -17,6 +17,11 @@ export default function TabLayout() {
   const tabBarPaddingBottom =
     Platform.OS === "ios" ? 28 : insets.bottom + 8;
 
+  // Determine which tabs to show based on role
+  const isStudent = userRole === "student";
+  const isParent = userRole === "parent";
+  const isTeacherOrAdmin = userRole === "teacher" || userRole === "school_admin";
+
   return (
     <Tabs
       screenOptions={{
@@ -38,46 +43,43 @@ export default function TabLayout() {
         },
       }}
     >
-      {/* Tab 1 — Discover (students/parents only) */}
-      {(userRole === "student" || userRole === "parent") && (
-        <Tabs.Screen
-          name="competitions"
-          options={{
-            title: "Discover",
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={26} name="trophy.fill" color={color} />
-            ),
-          }}
-        />
-      )}
+      {/* STUDENT & PARENT: Discover tab */}
+      <Tabs.Screen
+        name="competitions"
+        options={{
+          title: "Discover",
+          href: (isStudent || isParent) ? undefined : null,
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="trophy.fill" color={color} />
+          ),
+        }}
+      />
 
-      {/* Tab 2 — My Registrations (students only) */}
-      {userRole === "student" && (
-        <Tabs.Screen
-          name="my-competitions"
-          options={{
-            title: "My Regs",
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={26} name="checkmark.seal.fill" color={color} />
-            ),
-          }}
-        />
-      )}
+      {/* STUDENT ONLY: My Registrations tab */}
+      <Tabs.Screen
+        name="my-competitions"
+        options={{
+          title: "My Regs",
+          href: isStudent ? undefined : null,
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="checkmark.seal.fill" color={color} />
+          ),
+        }}
+      />
 
-      {/* Tab 2 — Children (parents only) */}
-      {userRole === "parent" && (
-        <Tabs.Screen
-          name="children"
-          options={{
-            title: "Children",
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={26} name="person.2.fill" color={color} />
-            ),
-          }}
-        />
-      )}
+      {/* PARENT ONLY: Children tab */}
+      <Tabs.Screen
+        name="children"
+        options={{
+          title: "Children",
+          href: isParent ? undefined : null,
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="person.2.fill" color={color} />
+          ),
+        }}
+      />
 
-      {/* Tab 3 — Notifications (all roles) */}
+      {/* ALL ROLES: Notifications tab */}
       <Tabs.Screen
         name="notifications"
         options={{
@@ -88,7 +90,7 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Tab 4 — Profile (all roles) */}
+      {/* ALL ROLES: Profile tab */}
       <Tabs.Screen
         name="profile"
         options={{
@@ -99,21 +101,10 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Hidden screens — not shown in tab bar */}
+      {/* Always hidden screens */}
       <Tabs.Screen name="index" options={{ href: null }} />
       <Tabs.Screen name="competitions/[id]" options={{ href: null }} />
       <Tabs.Screen name="profile/link-parent" options={{ href: null }} />
-
-      {/* Hide tabs based on role */}
-      {userRole !== "parent" && (
-        <Tabs.Screen name="children" options={{ href: null }} />
-      )}
-      {(userRole === "teacher" || userRole === "school_admin") && (
-        <>
-          <Tabs.Screen name="competitions" options={{ href: null }} />
-          <Tabs.Screen name="my-competitions" options={{ href: null }} />
-        </>
-      )}
     </Tabs>
   );
 }
