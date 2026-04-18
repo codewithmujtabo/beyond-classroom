@@ -1,13 +1,16 @@
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Brand } from "@/constants/theme";
+import { useUser } from "@/context/AuthContext";
 import { Tabs } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabLayout() {
+  const { user } = useUser();
   const insets = useSafeAreaInsets();
+  const userRole = (user as any)?.role || "student";
 
   const tabBarHeight =
     Platform.OS === "ios" ? 85 : 60 + insets.bottom;
@@ -68,6 +71,19 @@ export default function TabLayout() {
         }}
       />
 
+      {/* Tab 3.5 — Children (parents only) */}
+      {userRole === "parent" && (
+        <Tabs.Screen
+          name="children"
+          options={{
+            title: "Children",
+            tabBarIcon: ({ color }) => (
+              <IconSymbol size={26} name="person.2.fill" color={color} />
+            ),
+          }}
+        />
+      )}
+
       {/* Tab 4 — Profile */}
       <Tabs.Screen
         name="profile"
@@ -82,6 +98,10 @@ export default function TabLayout() {
       {/* Hidden screens — not shown in tab bar */}
       <Tabs.Screen name="index" options={{ href: null }} />
       <Tabs.Screen name="competitions/[id]" options={{ href: null }} />
+      <Tabs.Screen name="profile/link-parent" options={{ href: null }} />
+      {userRole !== "parent" && (
+        <Tabs.Screen name="children" options={{ href: null }} />
+      )}
     </Tabs>
   );
 }

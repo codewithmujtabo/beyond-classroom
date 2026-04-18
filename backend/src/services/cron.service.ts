@@ -9,6 +9,7 @@ import cron from "node-cron";
 import { pool } from "../config/database";
 import * as pushService from "./push.service";
 import * as recommendationsService from "./recommendations.service";
+import { processPendingJobs } from "./bulk-processor.service";
 
 /**
  * T4.5 — Send deadline reminders (3 days before registration close)
@@ -363,6 +364,23 @@ export function scheduleDeadlineUrgencyReminders() {
 }
 
 /**
+ * Sprint 5, Track B - Process bulk registration jobs
+ * Runs every minute to check for pending jobs
+ */
+export function scheduleBulkJobProcessor() {
+  // Run every minute
+  cron.schedule("* * * * *", async () => {
+    try {
+      await processPendingJobs();
+    } catch (error: any) {
+      console.error("[Cron] Bulk job processor failed:", error.message);
+    }
+  });
+
+  console.log("[Cron] Bulk job processor scheduled (every minute)");
+}
+
+/**
  * Initialize all cron jobs
  */
 export function initializeCronJobs() {
@@ -370,5 +388,6 @@ export function initializeCronJobs() {
   scheduleCompetitionDayReminders();
   scheduleNotificationSender();
   scheduleDeadlineUrgencyReminders();
+  scheduleBulkJobProcessor();
   console.log("[Cron] All cron jobs initialized");
 }
