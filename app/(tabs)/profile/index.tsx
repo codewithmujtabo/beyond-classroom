@@ -132,15 +132,16 @@ export default function ProfileScreen() {
         )}
       </View>
 
-      {/* Live stats row */}
-      <View style={styles.statsRow}>
-        {[
-          { label: "Total", value: String(totalComps) },
-          { label: "Active", value: String(active) },
-          { label: "Completed", value: String(completed) },
-        ].map((s, i) => (
-          <View
-            key={s.label}
+      {/* Live stats row - Students only */}
+      {role === "student" && (
+        <View style={styles.statsRow}>
+          {[
+            { label: "Total", value: String(totalComps) },
+            { label: "Active", value: String(active) },
+            { label: "Completed", value: String(completed) },
+          ].map((s, i) => (
+            <View
+              key={s.label}
             style={[
               styles.statItem,
               i < 2 && styles.statItemBorder,
@@ -150,7 +151,8 @@ export default function ProfileScreen() {
             <Text style={styles.statLabel}>{s.label}</Text>
           </View>
         ))}
-      </View>
+        </View>
+      )}
 
       {/* Menu */}
       <View style={styles.menuCard}>
