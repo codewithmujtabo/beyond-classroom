@@ -34,9 +34,10 @@ export default function ProfileScreen() {
   const roleDisplay = roleLabel[role] ?? role;
   const roleIcon = roleMeta[role] ?? "👤";
 
-  const totalComps = registrations.length;
-  const completed = registrations.filter((r) => r.status === "completed").length;
-  const active = registrations.filter((r) => r.status === "paid").length;
+  // Only show registration stats for students
+  const totalComps = role === "student" ? registrations.length : 0;
+  const completed = role === "student" ? registrations.filter((r) => r.status === "completed").length : 0;
+  const active = role === "student" ? registrations.filter((r) => r.status === "paid").length : 0;
 
   const menuItems = [
     {
@@ -44,17 +45,31 @@ export default function ProfileScreen() {
       label: "Edit Profile",
       onPress: () => router.push("/(tabs)/profile/edit"),
     },
-    {
-      emoji: "📄",
-      label: "Document Vault",
-      onPress: () => router.push("/(tabs)/profile/document-vault"),
-    },
     ...(role === "student"
       ? [
+          {
+            emoji: "📄",
+            label: "Document Vault",
+            onPress: () => router.push("/(tabs)/profile/document-vault"),
+          },
           {
             emoji: "👨‍👩‍👧",
             label: "Link Parent Account",
             onPress: () => router.push("/(tabs)/profile/link-parent"),
+          },
+        ]
+      : []),
+    ...(role === "teacher" || role === "school_admin"
+      ? [
+          {
+            emoji: "📊",
+            label: "School Dashboard",
+            onPress: () => router.push("/school-dashboard"),
+          },
+          {
+            emoji: "📤",
+            label: "Bulk Registration",
+            onPress: () => router.push("/bulk-registration"),
           },
         ]
       : []),
