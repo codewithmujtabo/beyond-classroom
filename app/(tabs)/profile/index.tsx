@@ -49,6 +49,15 @@ export default function ProfileScreen() {
       label: "Document Vault",
       onPress: () => router.push("/(tabs)/profile/document-vault"),
     },
+    ...(role === "student"
+      ? [
+          {
+            emoji: "👨‍👩‍👧",
+            label: "Link Parent Account",
+            onPress: () => router.push("/(tabs)/profile/link-parent"),
+          },
+        ]
+      : []),
     {
       emoji: "🔔",
       label: "Notifications",

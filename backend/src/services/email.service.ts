@@ -30,3 +30,30 @@ export async function sendOtpEmail(email: string, code: string): Promise<void> {
     `,
   });
 }
+
+export async function sendParentInvitationEmail(email: string, pin: string, studentName: string): Promise<void> {
+  await transporter.sendMail({
+    from: env.SMTP_FROM,
+    to: email,
+    subject: "Parent Account Invitation - Beyond Classroom",
+    text: `${studentName} has invited you to link your parent account.\n\nYour verification PIN is: ${pin}\n\nThis PIN is valid for 24 hours.\n\nTo complete the linking process, open the Beyond Classroom app and enter this PIN when prompted.`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #4F46E5;">Beyond Classroom</h2>
+        <p><strong>${studentName}</strong> has invited you to link your parent account.</p>
+        <p>Your verification PIN is:</p>
+        <div style="background: #F0F0FF; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+          <span style="font-size: 40px; font-weight: bold; letter-spacing: 12px; color: #4F46E5;">${pin}</span>
+        </div>
+        <p style="color: #666; font-size: 14px;">This PIN is valid for 24 hours.</p>
+        <p style="color: #666; font-size: 14px;">To complete the linking process:</p>
+        <ol style="color: #666; font-size: 14px;">
+          <li>Open the Beyond Classroom app</li>
+          <li>Go to your profile or children section</li>
+          <li>Enter this PIN when prompted</li>
+        </ol>
+        <p style="color: #999; font-size: 12px; margin-top: 20px;">If you didn't expect this invitation, please ignore this email.</p>
+      </div>
+    `,
+  });
+}
