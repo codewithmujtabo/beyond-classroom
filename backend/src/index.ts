@@ -21,6 +21,7 @@ import notificationsRoutes from "./routes/notifications.routes";
 import parentsRoutes from "./routes/parents.routes";
 import bulkRegistrationRoutes from "./routes/bulk-registration.routes";
 import schoolsRoutes from "./routes/schools.routes";
+import teachersRoutes from "./routes/teachers.routes";
 import { initializeCronJobs } from "./services/cron.service";
 
 const app = express();
@@ -47,6 +48,7 @@ app.use("/api/notifications", notificationsRoutes);
 app.use("/api/parents", parentsRoutes);
 app.use("/api/bulk-registration", bulkRegistrationRoutes);
 app.use("/api/schools", schoolsRoutes);
+app.use("/api/teachers", teachersRoutes);
 
 // Sentry error handler must come before our own error handler
 Sentry.setupExpressErrorHandler(app);

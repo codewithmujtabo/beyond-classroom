@@ -12,65 +12,21 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { Brand } from "@/constants/theme";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { apiRequest } from "@/services/api";
 import { router } from "expo-router";
-
-interface Student {
-  id: string;
-  fullName: string;
-  email: string;
-  grade: number;
-  nisn: string;
-  registrationCount: number;
-  lastActive: string;
-}
+import { getTeacherStudents } from "@/services/teachers.service";
 
 export default function TeacherStudentsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [gradeFilter, setGradeFilter] = useState("");
 
-  // Fetch students (mock data for now - will connect to backend)
-  const { data: students, isLoading } = useQuery<Student[]>({
+  // Fetch students from backend
+  const { data, isLoading } = useQuery({
     queryKey: ["teacherStudents", searchQuery, gradeFilter],
-    queryFn: async () => {
-      // Mock data - replace with actual API call
-      return [
-        {
-          id: "1",
-          fullName: "Ahmad Rizki",
-          email: "ahmad@school.com",
-          grade: 10,
-          nisn: "0012345678",
-          registrationCount: 5,
-          lastActive: "2026-04-15",
-        },
-        {
-          id: "2",
-          fullName: "Siti Nurhaliza",
-          email: "siti@school.com",
-          grade: 11,
-          nisn: "0012345679",
-          registrationCount: 3,
-          lastActive: "2026-04-16",
-        },
-        {
-          id: "3",
-          fullName: "Budi Santoso",
-          email: "budi@school.com",
-          grade: 10,
-          nisn: "0012345680",
-          registrationCount: 7,
-          lastActive: "2026-04-17",
-        },
-      ].filter((s) => {
-        const matchesSearch =
-          !searchQuery ||
-          s.fullName.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesGrade = !gradeFilter || s.grade === parseInt(gradeFilter);
-        return matchesSearch && matchesGrade;
-      });
-    },
+    queryFn: () => getTeacherStudents(searchQuery, gradeFilter),
   });
+
+  const students = data?.students || [];
+  const stats = data?.stats || { totalStudents: 0, totalRegistrations: 0, activeStudents: 0 };
 
   const handleBulkRegister = () => {
     router.push("/bulk-registration");
@@ -138,19 +94,15 @@ export default function TeacherStudentsScreen() {
         {/* Quick Stats */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{students?.length || 0}</Text>
+            <Text style={styles.statValue}>{stats.totalStudents}</Text>
             <Text style={styles.statLabel}>Total Students</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>
-              {students?.reduce((acc, s) => acc + s.registrationCount, 0) || 0}
-            </Text>
+            <Text style={styles.statValue}>{stats.totalRegistrations}</Text>
             <Text style={styles.statLabel}>Total Registrations</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>
-              {students?.filter((s) => s.registrationCount > 0).length || 0}
-            </Text>
+            <Text style={styles.statValue}>{stats.activeStudents}</Text>
             <Text style={styles.statLabel}>Active Students</Text>
           </View>
         </View>
@@ -173,7 +125,7 @@ export default function TeacherStudentsScreen() {
                 <View style={styles.studentInfo}>
                   <Text style={styles.studentName}>{student.fullName}</Text>
                   <Text style={styles.studentDetails}>
-                    Grade {student.grade} • NISN: {student.nisn}
+                    {student.grade ? `Grade ${student.grade}` : "No grade"}{student.nisn ? ` • NISN: ${student.nisn}` : ""}
                   </Text>
                   <Text style={styles.studentEmail}>{student.email}</Text>
                 </View>

@@ -5,13 +5,27 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Brand } from "@/constants/theme";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { getRecentActivities, getUpcomingDeadlines } from "@/services/teachers.service";
 
 export default function TeacherActionsScreen() {
+  // Fetch recent activities and upcoming deadlines
+  const { data: recentActivities, isLoading: isLoadingActivities } = useQuery({
+    queryKey: ["recentActivities"],
+    queryFn: getRecentActivities,
+  });
+
+  const { data: upcomingDeadlines, isLoading: isLoadingDeadlines } = useQuery({
+    queryKey: ["upcomingDeadlines"],
+    queryFn: getUpcomingDeadlines,
+  });
+
   const quickActions = [
     {
       id: "bulk-register",
@@ -28,7 +42,7 @@ export default function TeacherActionsScreen() {
       subtitle: "Download CSV of all students",
       color: "#10B981",
       onPress: () => {
-        // Handle export
+        // TODO: Implement export functionality
         console.log("Export data");
       },
     },
@@ -39,7 +53,7 @@ export default function TeacherActionsScreen() {
       subtitle: "Notify students about deadlines",
       color: "#F59E0B",
       onPress: () => {
-        // Handle reminder
+        // TODO: Implement reminder functionality
         console.log("Send reminder");
       },
     },
@@ -50,63 +64,9 @@ export default function TeacherActionsScreen() {
       subtitle: "Detailed performance reports",
       color: "#8B5CF6",
       onPress: () => {
-        // Navigate to reports
-        console.log("View reports");
+        // Navigate to analytics tab
+        router.push("/(tabs)/teacher-analytics");
       },
-    },
-  ];
-
-  const recentActivities = [
-    {
-      id: "1",
-      action: "Bulk registered 15 students",
-      competition: "National Math Olympiad",
-      time: "2 hours ago",
-      icon: "checkmark.circle.fill",
-      color: "#10B981",
-    },
-    {
-      id: "2",
-      action: "Exported student data",
-      competition: "All students (Grade 10)",
-      time: "1 day ago",
-      icon: "arrow.down.circle.fill",
-      color: "#4F46E5",
-    },
-    {
-      id: "3",
-      action: "Sent deadline reminder",
-      competition: "Science Fair 2026",
-      time: "2 days ago",
-      icon: "bell.fill",
-      color: "#F59E0B",
-    },
-  ];
-
-  const upcomingDeadlines = [
-    {
-      id: "1",
-      competition: "National Math Olympiad",
-      deadline: "Apr 22, 2026",
-      daysLeft: 4,
-      registeredCount: 12,
-      status: "urgent",
-    },
-    {
-      id: "2",
-      competition: "Science Fair 2026",
-      deadline: "Apr 28, 2026",
-      daysLeft: 10,
-      registeredCount: 8,
-      status: "upcoming",
-    },
-    {
-      id: "3",
-      competition: "English Debate Competition",
-      deadline: "May 5, 2026",
-      daysLeft: 17,
-      registeredCount: 5,
-      status: "upcoming",
     },
   ];
 
@@ -151,8 +111,11 @@ export default function TeacherActionsScreen() {
             Competitions closing soon
           </Text>
 
-          {upcomingDeadlines.map((item) => (
-            <View key={item.id} style={styles.deadlineCard}>
+          {isLoadingDeadlines ? (
+            <ActivityIndicator style={styles.loader} color={Brand.primary} />
+          ) : upcomingDeadlines && upcomingDeadlines.length > 0 ? (
+            upcomingDeadlines.map((item) => (
+              <View key={item.id} style={styles.deadlineCard}>
               <View style={styles.deadlineHeader}>
                 <View style={styles.deadlineInfo}>
                   <Text style={styles.deadlineName}>{item.competition}</Text>
@@ -187,7 +150,12 @@ export default function TeacherActionsScreen() {
                 </Text>
               </View>
             </View>
-          ))}
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No upcoming deadlines</Text>
+            </View>
+          )}
         </View>
 
         {/* Recent Activities */}
@@ -197,30 +165,38 @@ export default function TeacherActionsScreen() {
             Your recent actions and updates
           </Text>
 
-          {recentActivities.map((activity) => (
-            <View key={activity.id} style={styles.activityCard}>
-              <View
-                style={[
-                  styles.activityIcon,
-                  { backgroundColor: `${activity.color}15` },
-                ]}
-              >
-                <IconSymbol
-                  name={activity.icon as any}
-                  size={20}
-                  color={activity.color}
-                />
-              </View>
+          {isLoadingActivities ? (
+            <ActivityIndicator style={styles.loader} color={Brand.primary} />
+          ) : recentActivities && recentActivities.length > 0 ? (
+            recentActivities.map((activity) => (
+              <View key={activity.id} style={styles.activityCard}>
+                <View
+                  style={[
+                    styles.activityIcon,
+                    { backgroundColor: `${activity.color}15` },
+                  ]}
+                >
+                  <IconSymbol
+                    name={activity.icon as any}
+                    size={20}
+                    color={activity.color}
+                  />
+                </View>
 
-              <View style={styles.activityInfo}>
-                <Text style={styles.activityAction}>{activity.action}</Text>
-                <Text style={styles.activityCompetition}>
-                  {activity.competition}
-                </Text>
-                <Text style={styles.activityTime}>{activity.time}</Text>
+                <View style={styles.activityInfo}>
+                  <Text style={styles.activityAction}>{activity.action}</Text>
+                  <Text style={styles.activityCompetition}>
+                    {activity.competition}
+                  </Text>
+                  <Text style={styles.activityTime}>{activity.time}</Text>
+                </View>
               </View>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No recent activities</Text>
             </View>
-          ))}
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -374,6 +350,17 @@ const styles = StyleSheet.create({
   },
   activityTime: {
     fontSize: 12,
+    color: "#94A3B8",
+  },
+  loader: {
+    marginVertical: 40,
+  },
+  emptyState: {
+    paddingVertical: 40,
+    alignItems: "center",
+  },
+  emptyText: {
+    fontSize: 14,
     color: "#94A3B8",
   },
 });
