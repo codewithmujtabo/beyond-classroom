@@ -24,11 +24,13 @@ export default function ProfileScreen() {
     student: "Student",
     parent: "Parent",
     teacher: "Teacher",
+    school_admin: "School Admin",
   };
   const roleMeta: Record<string, string> = {
     student: "👨‍🎓",
     parent: "👨‍👩‍👧",
     teacher: "👨‍🏫",
+    school_admin: "👔",
   };
   const role = (user as any)?.role ?? "student";
   const roleDisplay = roleLabel[role] ?? role;
@@ -59,7 +61,7 @@ export default function ProfileScreen() {
           },
         ]
       : []),
-    ...(role === "teacher" || role === "school_admin"
+    ...(role === "school_admin"
       ? [
           {
             emoji: "📊",

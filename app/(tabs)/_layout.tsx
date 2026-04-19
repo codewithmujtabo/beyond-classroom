@@ -20,7 +20,8 @@ export default function TabLayout() {
   // Determine which tabs to show based on role
   const isStudent = userRole === "student";
   const isParent = userRole === "parent";
-  const isTeacherOrAdmin = userRole === "teacher" || userRole === "school_admin";
+  const isTeacher = userRole === "teacher";
+  const isSchoolAdmin = userRole === "school_admin";
 
   return (
     <Tabs
@@ -75,6 +76,42 @@ export default function TabLayout() {
           href: isParent ? undefined : null,
           tabBarIcon: ({ color }) => (
             <IconSymbol size={26} name="person.2.fill" color={color} />
+          ),
+        }}
+      />
+
+      {/* TEACHER ONLY: My Students tab */}
+      <Tabs.Screen
+        name="teacher-students"
+        options={{
+          title: "My Students",
+          href: isTeacher ? undefined : null,
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="person.3.fill" color={color} />
+          ),
+        }}
+      />
+
+      {/* TEACHER ONLY: Analytics tab */}
+      <Tabs.Screen
+        name="teacher-analytics"
+        options={{
+          title: "Analytics",
+          href: isTeacher ? undefined : null,
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="chart.bar.fill" color={color} />
+          ),
+        }}
+      />
+
+      {/* TEACHER ONLY: Actions tab */}
+      <Tabs.Screen
+        name="teacher-actions"
+        options={{
+          title: "Actions",
+          href: isTeacher ? undefined : null,
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="bolt.fill" color={color} />
           ),
         }}
       />

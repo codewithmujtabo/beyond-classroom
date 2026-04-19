@@ -45,6 +45,21 @@ async function fetchUserWithRole(userId: string) {
       const t = r.rows[0];
       roleData = { school: t.school, subject: t.subject, department: t.department };
     }
+  } else if (user.role === "school_admin") {
+    // Fetch school info for school_admin
+    const r = await pool.query(
+      "SELECT s.* FROM schools s JOIN users u ON u.school_id = s.id WHERE u.id = $1",
+      [userId]
+    );
+    if (r.rows.length > 0) {
+      const school = r.rows[0];
+      roleData = {
+        school: school.name,
+        npsn: school.npsn,
+        schoolCity: school.city,
+        schoolProvince: school.province,
+      };
+    }
   }
 
   return {
