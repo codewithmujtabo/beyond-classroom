@@ -65,7 +65,18 @@ export default function LoginScreen() {
 
   function onSuccess(user: any) {
     fetchUser(user?.id);
-    router.replace("/(tabs)");
+
+    // Navigate to role-specific screen
+    const userRole = user?.role;
+    if (userRole === "teacher") {
+      router.replace("/(tabs)/teacher-dashboard");
+    } else if (userRole === "parent") {
+      router.replace("/(tabs)/children");
+    } else if (userRole === "school_admin") {
+      router.replace("/(tabs)/profile");
+    } else {
+      router.replace("/(tabs)/competitions");
+    }
   }
 
   // ── Email + password ────────────────────────────────────────────────────────

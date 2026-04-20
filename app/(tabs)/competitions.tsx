@@ -88,6 +88,9 @@ export default function DiscoverScreen() {
     (user as any)?.name?.split(" ")[0] ??
     "there";
 
+  const userRole = (user as any)?.role || "student";
+  const isParent = userRole === "parent";
+
   const {
     data: allCompetitions = [],
     isLoading,
@@ -111,13 +114,24 @@ export default function DiscoverScreen() {
   });
 
   const categories = useMemo(() => {
-    const cats = [...new Set(allCompetitions.map((c) => c.category))].sort();
+    // Extract all unique categories (split multi-line categories)
+    const allCats = allCompetitions.flatMap((c) =>
+      c.category.split("\n").map((cat) => cat.trim()).filter(Boolean)
+    );
+    const cats = [...new Set(allCats)].sort();
     return cats;
   }, [allCompetitions]);
 
   const filtered = useMemo(() => {
     return allCompetitions.filter((c) => {
-      if (activeCategory && c.category !== activeCategory) return false;
+      // Check if competition has the active category (handle multi-line categories)
+      if (activeCategory) {
+        const compCategories = c.category
+          .split("\n")
+          .map((cat) => cat.trim())
+          .filter(Boolean);
+        if (!compCategories.includes(activeCategory)) return false;
+      }
       if (gradeFilter && !c.gradeLevel.includes(gradeFilter)) return false;
       if (query && !c.name.toLowerCase().includes(query.toLowerCase()))
         return false;
@@ -132,18 +146,24 @@ export default function DiscoverScreen() {
         <Text style={styles.greetingText}>Hello, {displayName}! 👋</Text>
         <Text style={styles.greetingSubtitle}>
           {isLoading
-            ? "Finding competitions for you..."
+            ? isParent ? "Finding competitions for your children..." : "Finding competitions for you..."
+            : isParent
+            ? `${allCompetitions.length} competitions available for your children`
             : `${allCompetitions.length} competitions available for you`}
         </Text>
       </View>
 
-      {/* Sprint 4, Track B (T8) - Recommended for you section */}
+      {/* Sprint 4, Track B (T8) - Recommended section */}
       {registrations.length > 0 && recommendations.length > 0 && (
         <View style={styles.recommendedSection}>
           <View style={styles.recommendedHeader}>
-            <Text style={styles.recommendedTitle}>✨ Recommended for you</Text>
+            <Text style={styles.recommendedTitle}>
+              ✨ {isParent ? "Recommended for your children" : "Recommended for you"}
+            </Text>
             <Text style={styles.recommendedSubtitle}>
-              Based on your interests and registrations
+              {isParent
+                ? "Based on their interests and activities"
+                : "Based on your interests and registrations"}
             </Text>
           </View>
           <FlatList
@@ -153,9 +173,16 @@ export default function DiscoverScreen() {
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.recommendedList}
             renderItem={({ item }) => {
-              const accent = CategoryAccent[item.category] ?? Brand.primary;
-              const catBg = CategoryBg[item.category] ?? "#F5F8FF";
-              const emoji = CategoryEmoji[item.category] ?? "🏆";
+              // Extract first category for display
+              const categories = item.category
+                .split("\n")
+                .map((cat) => cat.trim())
+                .filter(Boolean);
+              const firstCategory = categories[0] || "General";
+
+              const accent = CategoryAccent[firstCategory] ?? Brand.primary;
+              const catBg = CategoryBg[firstCategory] ?? "#F5F8FF";
+              const emoji = CategoryEmoji[firstCategory] ?? "🏆";
               const urgency = getDeadlineStatus(item.reg_close_date);
 
               return (
@@ -174,20 +201,28 @@ export default function DiscoverScreen() {
                     });
                   }}
                 >
-                  <View
-                    style={[
-                      styles.recommendedEmoji,
-                      { backgroundColor: catBg },
-                    ]}
-                  >
-                    <Text style={{ fontSize: 24 }}>{emoji}</Text>
-                  </View>
                   <Text style={styles.recommendedCardTitle} numberOfLines={2}>
                     {item.name}
                   </Text>
                   <Text style={styles.recommendedCardOrg} numberOfLines={1}>
                     {item.organizer_name}
                   </Text>
+                  <View style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    backgroundColor: catBg,
+                    borderRadius: 6,
+                    alignSelf: "flex-start",
+                    marginTop: 6,
+                  }}>
+                    <Text style={{
+                      fontSize: 10,
+                      fontWeight: "600",
+                      color: accent,
+                    }}>
+                      {firstCategory}
+                    </Text>
+                  </View>
                   {urgency && (
                     <View
                       style={[
@@ -250,9 +285,6 @@ export default function DiscoverScreen() {
                     : { backgroundColor: bg, borderColor: "transparent" },
                 ]}
               >
-                <Text style={styles.chipEmoji}>
-                  {CategoryEmoji[cat] ?? "🏆"}
-                </Text>
                 <Text
                   style={[
                     styles.chipLabel,
@@ -347,9 +379,17 @@ export default function DiscoverScreen() {
           )
         }
         renderItem={({ item }) => {
-          const accent = CategoryAccent[item.category] ?? Brand.primary;
-          const catBg = CategoryBg[item.category] ?? "#F5F8FF";
-          const emoji = CategoryEmoji[item.category] ?? "🏆";
+          // Extract first category for display (handle multi-line categories)
+          const categories = item.category
+            .split("\n")
+            .map((cat) => cat.trim())
+            .filter(Boolean);
+          const firstCategory = categories[0] || "General";
+          const categoryCount = categories.length;
+
+          const accent = CategoryAccent[firstCategory] ?? Brand.primary;
+          const catBg = CategoryBg[firstCategory] ?? "#F5F8FF";
+          const emoji = CategoryEmoji[firstCategory] ?? "🏆";
           const urgency = getDeadlineStatus(item.regCloseDate);
           const grades = item.gradeLevel
             .split(",")
@@ -372,16 +412,44 @@ export default function DiscoverScreen() {
               }}
             >
               <View style={styles.cardTop}>
-                {/* Emoji inside a colored circle */}
-                <View style={[styles.emojiCircle, { backgroundColor: catBg }]}>
-                  <Text style={styles.cardEmoji}>{emoji}</Text>
-                </View>
-
                 <View style={styles.cardInfo}>
                   <Text style={styles.cardTitle} numberOfLines={2}>
                     {item.name}
                   </Text>
-                  <Text style={styles.cardOrg}>{item.organizerName}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                    <Text style={styles.cardOrg}>{item.organizerName}</Text>
+                    {categoryCount > 1 ? (
+                      <View style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        backgroundColor: catBg,
+                        borderRadius: 6,
+                      }}>
+                        <Text style={{
+                          fontSize: 10,
+                          fontWeight: "600",
+                          color: accent,
+                        }}>
+                          {firstCategory} +{categoryCount - 1}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        backgroundColor: catBg,
+                        borderRadius: 6,
+                      }}>
+                        <Text style={{
+                          fontSize: 10,
+                          fontWeight: "600",
+                          color: accent,
+                        }}>
+                          {firstCategory}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
 
                   {/* Grade pills */}
                   {grades.length > 0 && (
@@ -496,14 +564,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  recommendedEmoji: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
   recommendedCardTitle: {
     fontSize: 14,
     fontWeight: "800",
@@ -555,13 +615,12 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
     borderWidth: 1.5,
   },
-  chipEmoji: { marginRight: 5, fontSize: 14 },
   chipLabel: { fontWeight: "700", fontSize: 13 },
 
   // Grade filter
@@ -599,15 +658,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardTop: { flexDirection: "row", alignItems: "flex-start" },
-  emojiCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  cardEmoji: { fontSize: 26 },
   cardInfo: { flex: 1 },
   cardTitle: {
     fontSize: 15,

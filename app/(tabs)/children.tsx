@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,23 +12,28 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { router } from "expo-router";
 import { Brand } from "@/constants/theme";
+import { useUser } from "@/context/AuthContext";
 import { getMyChildren, acceptInvitation } from "@/services/parents.service";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 
 export default function ChildrenScreen() {
+  const { user } = useUser();
+  const userRole = (user as any)?.role;
   const [showPinModal, setShowPinModal] = useState(false);
   const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
   const queryClient = useQueryClient();
 
-  // Fetch linked children
+  // Fetch linked children (hooks must come before any returns)
   const { data: children, isLoading, refetch } = useQuery({
     queryKey: ["myChildren"],
     queryFn: () => getMyChildren("active"),
+    enabled: userRole === "parent",
   });
 
-  // Accept invitation mutation
+  // Accept invitation mutation (hooks must come before any returns)
   const acceptInvitationMutation = useMutation({
     mutationFn: ({ email, pin }: { email: string; pin: string }) => acceptInvitation(email, pin),
     onSuccess: () => {
@@ -45,6 +50,24 @@ export default function ChildrenScreen() {
       Alert.alert("Error", error.message || "Invalid or expired PIN");
     },
   });
+
+  // Redirect non-parents away from this screen
+  useEffect(() => {
+    if (userRole && userRole !== "parent") {
+      if (userRole === "teacher") {
+        router.replace("/(tabs)/teacher-dashboard");
+      } else if (userRole === "school_admin") {
+        router.replace("/(tabs)/profile");
+      } else {
+        router.replace("/(tabs)/competitions");
+      }
+    }
+  }, [userRole]);
+
+  // Don't render if not a parent
+  if (userRole && userRole !== "parent") {
+    return null;
+  }
 
   const handleAcceptInvitation = () => {
     if (!email.trim() || !pin.trim()) {

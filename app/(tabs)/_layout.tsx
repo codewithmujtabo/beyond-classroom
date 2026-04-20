@@ -80,11 +80,23 @@ export default function TabLayout() {
         }}
       />
 
+      {/* TEACHER ONLY: Dashboard tab */}
+      <Tabs.Screen
+        name="teacher-dashboard"
+        options={{
+          title: "Dashboard",
+          href: isTeacher ? undefined : null,
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="square.grid.2x2.fill" color={color} />
+          ),
+        }}
+      />
+
       {/* TEACHER ONLY: My Students tab */}
       <Tabs.Screen
         name="teacher-students"
         options={{
-          title: "My Students",
+          title: "Students",
           href: isTeacher ? undefined : null,
           tabBarIcon: ({ color }) => (
             <IconSymbol size={26} name="person.3.fill" color={color} />
@@ -92,29 +104,9 @@ export default function TabLayout() {
         }}
       />
 
-      {/* TEACHER ONLY: Analytics tab */}
-      <Tabs.Screen
-        name="teacher-analytics"
-        options={{
-          title: "Analytics",
-          href: isTeacher ? undefined : null,
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="chart.bar.fill" color={color} />
-          ),
-        }}
-      />
-
-      {/* TEACHER ONLY: Actions tab */}
-      <Tabs.Screen
-        name="teacher-actions"
-        options={{
-          title: "Actions",
-          href: isTeacher ? undefined : null,
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="bolt.fill" color={color} />
-          ),
-        }}
-      />
+      {/* Hidden teacher screens */}
+      <Tabs.Screen name="teacher-analytics" options={{ href: null }} />
+      <Tabs.Screen name="teacher-actions" options={{ href: null }} />
 
       {/* ALL ROLES: Notifications tab */}
       <Tabs.Screen

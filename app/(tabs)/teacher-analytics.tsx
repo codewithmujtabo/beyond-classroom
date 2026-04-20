@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useQuery } from "@tantml:react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Brand } from "@/constants/theme";
-import { VictoryBar, VictoryChart, VictoryTheme, VictoryPie, VictoryAxis } from "victory-native";
+import { VictoryBar, VictoryChart, VictoryPie, VictoryAxis } from "victory-native";
 import {
   getRegistrationsByMonth,
   getCategoryDistribution,
@@ -102,7 +102,6 @@ export default function TeacherAnalyticsScreen() {
 
           {registrationsByMonth && registrationsByMonth.length > 0 ? (
             <VictoryChart
-              theme={VictoryTheme.material}
               width={screenWidth - 64}
               height={220}
               domainPadding={{ x: 30 }}

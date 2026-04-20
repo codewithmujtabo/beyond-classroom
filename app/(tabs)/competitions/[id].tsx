@@ -132,6 +132,16 @@ export default function CompetitionDetailPage() {
     );
   }
 
+  // Extract categories for display
+  const categories = comp.category
+    .split("\n")
+    .map((cat) => cat.trim())
+    .filter(Boolean);
+  const firstCategory = categories[0] || "General";
+  const categoryDisplay = categories.length > 1
+    ? `${firstCategory} +${categories.length - 1} more`
+    : firstCategory;
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
@@ -148,12 +158,12 @@ export default function CompetitionDetailPage() {
       {/* Info card */}
       <View style={styles.infoCard}>
         <Text style={styles.emoji}>
-          {CATEGORY_EMOJIS[comp.category] ?? "🏆"}
+          {CATEGORY_EMOJIS[firstCategory] ?? "🏆"}
         </Text>
         <Text style={styles.compTitle}>{comp.name}</Text>
         <Text style={styles.compOrg}>{comp.organizerName}</Text>
         <Text style={styles.compMeta}>
-          {comp.category} · {comp.gradeLevel.replace(/,/g, ", ")} ·{" "}
+          {categoryDisplay} · {comp.gradeLevel.replace(/,/g, ", ")} ·{" "}
           Closes {formatDate(comp.regCloseDate)}
         </Text>
         <Text style={[styles.compPrice, { marginTop: 12 }]}>
@@ -189,6 +199,29 @@ export default function CompetitionDetailPage() {
           <View>
             <Text style={styles.sectionTitle}>About the Competition</Text>
             <Text style={styles.sectionText}>{comp.description}</Text>
+
+            {categories.length > 1 && (
+              <>
+                <Text style={styles.sectionTitle}>Categories</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {categories.map((cat, idx) => (
+                    <View
+                      key={idx}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        backgroundColor: "#F1F5F9",
+                        borderRadius: 8,
+                      }}
+                    >
+                      <Text style={{ fontSize: 14, color: "#475569" }}>
+                        {cat}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
 
             <Text style={styles.sectionTitle}>Important Dates</Text>
             <View style={styles.infoBox}>

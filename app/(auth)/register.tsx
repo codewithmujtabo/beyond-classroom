@@ -223,7 +223,17 @@ export default function RegisterScreen() {
           await fetchUser(user.id);
         }
 
-        router.replace("/(tabs)");
+        // Navigate to role-specific screen
+        const userRole = user?.role || role;
+        if (userRole === "teacher") {
+          router.replace("/(tabs)/teacher-dashboard");
+        } else if (userRole === "parent") {
+          router.replace("/(tabs)/children");
+        } else if (userRole === "school_admin") {
+          router.replace("/(tabs)/profile");
+        } else {
+          router.replace("/(tabs)/competitions");
+        }
       } catch (err: any) {
         console.error(
           "Registration error:",

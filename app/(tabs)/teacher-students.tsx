@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,20 +13,42 @@ import { useQuery } from "@tanstack/react-query";
 import { Brand } from "@/constants/theme";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { router } from "expo-router";
+import { useUser } from "@/context/AuthContext";
 import { getTeacherStudents } from "@/services/teachers.service";
 
 export default function TeacherStudentsScreen() {
+  const { user } = useUser();
+  const userRole = (user as any)?.role;
   const [searchQuery, setSearchQuery] = useState("");
   const [gradeFilter, setGradeFilter] = useState("");
 
-  // Fetch students from backend
+  // Fetch students from backend (hooks must be called before any returns)
   const { data, isLoading } = useQuery({
     queryKey: ["teacherStudents", searchQuery, gradeFilter],
     queryFn: () => getTeacherStudents(searchQuery, gradeFilter),
+    enabled: userRole === "teacher", // Only fetch if teacher
   });
 
   const students = data?.students || [];
   const stats = data?.stats || { totalStudents: 0, totalRegistrations: 0, activeStudents: 0 };
+
+  // Redirect non-teachers away from this screen
+  useEffect(() => {
+    if (userRole && userRole !== "teacher") {
+      if (userRole === "parent") {
+        router.replace("/(tabs)/children");
+      } else if (userRole === "school_admin") {
+        router.replace("/(tabs)/profile");
+      } else {
+        router.replace("/(tabs)/competitions");
+      }
+    }
+  }, [userRole]);
+
+  // Don't render if not a teacher
+  if (userRole && userRole !== "teacher") {
+    return null;
+  }
 
   const handleBulkRegister = () => {
     router.push("/bulk-registration");
