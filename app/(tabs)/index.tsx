@@ -17,6 +17,10 @@ export default function HomeIndex() {
   }
 
   // Redirect based on role
+  if (userRole === "admin") {
+    return <Redirect href="/(tabs)/admin-competitions" />;
+  }
+
   if (userRole === "teacher") {
     return <Redirect href="/(tabs)/teacher-dashboard" />;
   }

@@ -1,9 +1,12 @@
 import { AppInput } from "@/components/common/AppInput";
+import { AppAutocomplete } from "@/components/common/AppAutocomplete";
 import * as authService from "@/services/auth.service";
+import * as regionsService from "@/services/regions.service";
+import * as schoolsService from "@/services/schools.service";
 import { Brand } from "@/constants/theme";
 import { useUser } from "@/context/AuthContext";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -67,11 +70,16 @@ export default function RegisterScreen() {
   const [name, setName] = useState("");
   const [phone, setPhone] =
     useState("");
+  const [province, setProvince] = useState("");
+  const [provinceCode, setProvinceCode] = useState("");
   const [city, setCity] = useState("");
+  const [regencyCode, setRegencyCode] = useState("");
 
   // Student specific
   const [school, setSchool] =
     useState("");
+  const [schoolNpsn, setSchoolNpsn] = useState("");
+  const [schoolAddress, setSchoolAddress] = useState("");
   const [grade, setGrade] =
     useState<Grade>("SMP");
 
@@ -96,6 +104,41 @@ export default function RegisterScreen() {
   >({});
   const [loading, setLoading] =
     useState(false);
+
+  // Autocomplete data
+  const [provincesList, setProvincesList] = useState<regionsService.Province[]>([]);
+  const [citiesList, setCitiesList] = useState<regionsService.Regency[]>([]);
+
+  // Load provinces on mount
+  useEffect(() => {
+    const loadProvinces = async () => {
+      try {
+        const provinces = await regionsService.getProvinces();
+        setProvincesList(provinces);
+      } catch (error) {
+        console.error("Failed to load provinces:", error);
+      }
+    };
+    loadProvinces();
+  }, []);
+
+  // Load cities when province changes
+  useEffect(() => {
+    if (!provinceCode) {
+      setCitiesList([]);
+      return;
+    }
+
+    const loadCities = async () => {
+      try {
+        const cities = await regionsService.getRegencies(provinceCode);
+        setCitiesList(cities);
+      } catch (error) {
+        console.error("Failed to load cities:", error);
+      }
+    };
+    loadCities();
+  }, [provinceCode]);
 
   // ─── Validation ────────────────────────────────────────────────────────────
 
@@ -135,6 +178,9 @@ export default function RegisterScreen() {
     )
       e.phone =
         "Enter a valid phone number";
+
+    if (!province.trim())
+      e.province = "Province is required";
 
     if (!city.trim())
       e.city = "City is required";
@@ -187,6 +233,8 @@ export default function RegisterScreen() {
           roleData = {
             school: school.trim(),
             grade,
+            npsn: schoolNpsn || null,
+            schoolAddress: schoolAddress || null,
           };
         } else if (role === "parent") {
           roleData = {
@@ -209,6 +257,7 @@ export default function RegisterScreen() {
             fullName: name.trim(),
             phone: phone.trim(),
             city: city.trim(),
+            province: province.trim(),
             role,
             roleData,
             consentAccepted: true,
@@ -225,7 +274,9 @@ export default function RegisterScreen() {
 
         // Navigate to role-specific screen
         const userRole = user?.role || role;
-        if (userRole === "teacher") {
+        if (userRole === "admin") {
+          router.replace("/(tabs)/admin-competitions");
+        } else if (userRole === "teacher") {
           router.replace("/(tabs)/teacher-dashboard");
         } else if (userRole === "parent") {
           router.replace("/(tabs)/children");
@@ -549,6 +600,7 @@ export default function RegisterScreen() {
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
+            autoCapitalize="none"
             error={errors.email}
           />
 
@@ -570,12 +622,73 @@ export default function RegisterScreen() {
             error={errors.phone}
           />
 
-          <AppInput
-            label="City"
-            placeholder="e.g. Jakarta"
+          <AppAutocomplete
+            label="Province"
+            placeholder="Select your province"
+            value={province}
+            onChangeText={setProvince}
+            onSelect={(item) => {
+              setProvince(item.name);
+              setProvinceCode(item.id);
+              // Reset city when province changes
+              setCity("");
+              setRegencyCode("");
+            }}
+            fetchSuggestions={async (query) => {
+              if (!query || query.trim().length === 0) {
+                // Return all provinces for dropdown
+                return provincesList.slice(0, 20).map((prov) => ({
+                  id: prov.code,
+                  name: prov.name,
+                }));
+              }
+              const lowerQuery = query.toLowerCase();
+              return provincesList
+                .filter((prov) => prov.name.toLowerCase().includes(lowerQuery))
+                .slice(0, 10)
+                .map((prov) => ({
+                  id: prov.code,
+                  name: prov.name,
+                }));
+            }}
+            error={errors.province}
+            minSearchLength={0}
+            allowCustom={false}
+          />
+
+          <AppAutocomplete
+            label="City / Kabupaten"
+            placeholder={provinceCode ? "Select your city" : "Select province first"}
             value={city}
             onChangeText={setCity}
+            onSelect={(item) => {
+              setCity(item.name);
+              setRegencyCode(item.id);
+            }}
+            fetchSuggestions={async (query) => {
+              if (!provinceCode) {
+                return [];
+              }
+              if (!query || query.trim().length === 0) {
+                // Return all cities for this province
+                return citiesList.slice(0, 20).map((regency) => ({
+                  id: regency.code,
+                  name: regency.name,
+                }));
+              }
+              const lowerQuery = query.toLowerCase();
+              return citiesList
+                .filter((regency) => regency.name.toLowerCase().includes(lowerQuery))
+                .slice(0, 10)
+                .map((regency) => ({
+                  id: regency.code,
+                  name: regency.name,
+                }));
+            }}
             error={errors.city}
+            minSearchLength={0}
+            allowCustom={false}
+            editable={!!provinceCode}
           />
         </View>
 
@@ -590,12 +703,43 @@ export default function RegisterScreen() {
               Student Information
             </Text>
 
-            <AppInput
+            <AppAutocomplete
               label="School Name"
-              placeholder="e.g. SMP Negeri 1 Jakarta"
+              placeholder={regencyCode ? "Type to search schools" : "Select city first"}
               value={school}
               onChangeText={setSchool}
+              onSelect={(item) => {
+                setSchool(item.name);
+                setSchoolNpsn(item.metadata?.npsn || "");
+                setSchoolAddress(item.metadata?.address || "");
+              }}
+              fetchSuggestions={async (query) => {
+                if (!regencyCode) {
+                  return [];
+                }
+                if (!query || query.trim().length < 3) {
+                  return [];
+                }
+                const schools = await schoolsService.searchSchools({
+                  name: query,
+                  regencyCode: regencyCode,
+                  grade: grade,
+                });
+                return schools.map((school) => ({
+                  id: school.npsn || school.id,
+                  name: school.name,
+                  metadata: {
+                    npsn: school.npsn,
+                    address: school.address,
+                  },
+                }));
+              }}
               error={errors.school}
+              minSearchLength={3}
+              debounceMs={500}
+              allowCustom={true}
+              customLabel="My school is not listed"
+              editable={!!regencyCode}
             />
 
             <View
@@ -669,14 +813,34 @@ export default function RegisterScreen() {
               error={errors.childName}
             />
 
-            <AppInput
+            <AppAutocomplete
               label="Child's School"
-              placeholder="e.g. SMP Negeri 1 Jakarta"
+              placeholder={regencyCode ? "Type to search schools" : "Select city first"}
               value={childSchool}
-              onChangeText={
-                setChildSchool
-              }
+              onChangeText={setChildSchool}
+              onSelect={(item) => setChildSchool(item.name)}
+              fetchSuggestions={async (query) => {
+                if (!regencyCode) {
+                  return [];
+                }
+                if (!query || query.trim().length < 3) {
+                  return [];
+                }
+                const schools = await schoolsService.searchSchools({
+                  name: query,
+                  regencyCode: regencyCode,
+                });
+                return schools.map((school) => ({
+                  id: school.npsn || school.id,
+                  name: school.name,
+                }));
+              }}
               error={errors.childSchool}
+              minSearchLength={3}
+              debounceMs={500}
+              allowCustom={true}
+              customLabel="My child's school is not listed"
+              editable={!!regencyCode}
             />
 
             <View
@@ -742,16 +906,34 @@ export default function RegisterScreen() {
               Teaching Information
             </Text>
 
-            <AppInput
+            <AppAutocomplete
               label="School Name"
-              placeholder="e.g. SMP Negeri 1 Jakarta"
+              placeholder={regencyCode ? "Type to search schools" : "Select city first"}
               value={teacherSchool}
-              onChangeText={
-                setTeacherSchool
-              }
-              error={
-                errors.teacherSchool
-              }
+              onChangeText={setTeacherSchool}
+              onSelect={(item) => setTeacherSchool(item.name)}
+              fetchSuggestions={async (query) => {
+                if (!regencyCode) {
+                  return [];
+                }
+                if (!query || query.trim().length < 3) {
+                  return [];
+                }
+                const schools = await schoolsService.searchSchools({
+                  name: query,
+                  regencyCode: regencyCode,
+                });
+                return schools.map((school) => ({
+                  id: school.npsn || school.id,
+                  name: school.name,
+                }));
+              }}
+              error={errors.teacherSchool}
+              minSearchLength={3}
+              debounceMs={500}
+              allowCustom={true}
+              customLabel="My school is not listed"
+              editable={!!regencyCode}
             />
 
             <AppInput

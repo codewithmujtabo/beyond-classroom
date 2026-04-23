@@ -165,7 +165,7 @@ export function scheduleNotificationSender() {
       for (const notification of result.rows) {
         try {
           const { id, user_id, type, title, body, data } = notification;
-          const notifData = data ? JSON.parse(data) : {};
+          const notifData = typeof data === 'string' ? JSON.parse(data) : (data || {});
 
           // Handle post-registration nudge (T9)
           if (type === "post_registration_nudge" && notifData.compId) {

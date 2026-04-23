@@ -21,7 +21,7 @@ router.get("/students", async (req: Request, res: Response) => {
         u.photo_url,
         s.nisn,
         s.grade,
-        s.school,
+        s.school_name,
         COUNT(r.id) as registration_count
       FROM users u
       JOIN students s ON u.id = s.id
@@ -46,7 +46,7 @@ router.get("/students", async (req: Request, res: Response) => {
       paramCount++;
     }
 
-    query += ` GROUP BY u.id, u.full_name, u.email, u.photo_url, s.nisn, s.grade, s.school
+    query += ` GROUP BY u.id, u.full_name, u.email, u.photo_url, s.nisn, s.grade, s.school_name
                ORDER BY u.full_name ASC`;
 
     const result = await pool.query(query, params);
@@ -64,7 +64,7 @@ router.get("/students", async (req: Request, res: Response) => {
         photoUrl: row.photo_url,
         nisn: row.nisn,
         grade: row.grade,
-        school: row.school,
+        school: row.school_name,
         registrationCount: parseInt(row.registration_count),
       })),
       stats: {

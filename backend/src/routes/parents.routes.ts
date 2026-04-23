@@ -176,7 +176,7 @@ router.get("/my-children", authMiddleware, async (req: Request, res: Response) =
         u.full_name,
         u.email,
         u.phone,
-        s.school,
+        s.school_name,
         s.grade,
         s.nisn
       FROM parent_student_links psl
@@ -223,7 +223,7 @@ router.get("/my-children", authMiddleware, async (req: Request, res: Response) =
         fullName: row.full_name,
         email: row.email,
         phone: row.phone,
-        school: row.school,
+        school: row.school_name,
         grade: row.grade,
         nisn: row.nisn,
         registrations: regsResult.rows.map(reg => ({
