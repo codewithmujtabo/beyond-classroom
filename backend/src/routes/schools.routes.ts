@@ -2,9 +2,94 @@ import { Router, Request, Response } from "express";
 import { pool } from "../config/database";
 import { authMiddleware } from "../middleware/auth";
 import { schoolAdminOnly } from "../middleware/school-admin.middleware";
+import { env } from "../config/env";
 import PDFDocument from "pdfkit";
+import fetch from "node-fetch";
 
 const router = Router();
+
+// ── GET /api/schools/search ───────────────────────────────────────────────
+// Search schools using API.co.id
+router.get("/search", async (req: Request, res: Response) => {
+  try {
+    const {
+      name,
+      provinceCode,
+      regencyCode,
+      districtCode,
+      grade,
+      status,
+      npsn,
+      page = '1'
+    } = req.query;
+
+    // Check if API key is configured
+    if (!env.API_CO_ID_KEY) {
+      res.status(500).json({
+        message: "School search service is not configured. Please contact support."
+      });
+      return;
+    }
+
+    // Build query params for API.co.id (snake_case)
+    const params = new URLSearchParams();
+    if (name) params.append('name', name as string);
+    if (provinceCode) params.append('province_code', provinceCode as string);
+    if (regencyCode) params.append('regency_code', regencyCode as string);
+    if (districtCode) params.append('district_code', districtCode as string);
+    if (grade) params.append('grade', grade as string);
+    if (status) params.append('status', status as string);
+    if (npsn) params.append('npsn', npsn as string);
+    params.append('page', page as string);
+
+    const apiUrl = `https://use.api.co.id/regional/indonesia/schools?${params.toString()}`;
+
+    const response = await fetch(apiUrl, {
+      headers: {
+        'x-api-co-id': env.API_CO_ID_KEY
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        res.status(500).json({
+          message: "School search service authentication failed. Please contact support."
+        });
+        return;
+      }
+
+      throw new Error(`API.co.id returned ${response.status}`);
+    }
+
+    const data: any = await response.json();
+
+    // Normalize the response to our format (camelCase)
+    const normalizedData = {
+      data: (data.data || []).map((school: any) => ({
+        npsn: school.npsn,
+        name: school.name,
+        grade: school.grade,
+        status: school.status,
+        address: school.address,
+        provinceCode: school.province_code,
+        provinceName: school.province_name,
+        regencyCode: school.regency_code,
+        regencyName: school.regency_name,
+        districtCode: school.district_code,
+        districtName: school.district_name,
+      })),
+      paging: data.paging || { page: 1, total: 0 }
+    };
+
+    res.json(normalizedData);
+  } catch (err: any) {
+    console.error("School search error:", err);
+    res.status(500).json({
+      message: "Failed to search schools",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined
+    });
+  }
+});
 
 // ── POST /api/schools ─────────────────────────────────────────────────────
 // Create a new school (admin endpoint - would typically be restricted)

@@ -24,17 +24,34 @@ export async function apiRequest<T>(
     }
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  // Add timeout using AbortController
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-  const data = await res.json();
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
 
-  if (!res.ok) {
-    throw new Error(data.message || `Request failed: ${res.status}`);
+    clearTimeout(timeoutId);
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || `Request failed: ${res.status}`);
+    }
+
+    return data as T;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your connection and try again.');
+    }
+
+    throw error;
   }
-
-  return data as T;
 }

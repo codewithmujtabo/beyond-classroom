@@ -26,4 +26,5 @@ export const env = {
   MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY || "",
   MIDTRANS_CLIENT_KEY: process.env.MIDTRANS_CLIENT_KEY || "",
   MIDTRANS_IS_PRODUCTION: process.env.MIDTRANS_IS_PRODUCTION === "true",
+  API_CO_ID_KEY: process.env.API_CO_ID_KEY || "",
 };

@@ -22,6 +22,7 @@ export default function TabLayout() {
   const isParent = userRole === "parent";
   const isTeacher = userRole === "teacher";
   const isSchoolAdmin = userRole === "school_admin";
+  const isAdmin = userRole === "admin";
 
   return (
     <Tabs
@@ -107,6 +108,34 @@ export default function TabLayout() {
       {/* Hidden teacher screens */}
       <Tabs.Screen name="teacher-analytics" options={{ href: null }} />
       <Tabs.Screen name="teacher-actions" options={{ href: null }} />
+
+      {/* ADMIN ONLY: Competitions Management tab */}
+      <Tabs.Screen
+        name="admin-competitions"
+        options={{
+          title: "Competitions",
+          href: isAdmin ? undefined : null,
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="trophy.fill" color={color} />
+          ),
+        }}
+      />
+
+      {/* ADMIN ONLY: Students tab */}
+      <Tabs.Screen
+        name="admin-students"
+        options={{
+          title: "Students",
+          href: isAdmin ? undefined : null,
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="person.3.fill" color={color} />
+          ),
+        }}
+      />
+
+      {/* Hidden admin screens */}
+      <Tabs.Screen name="admin-competition-form" options={{ href: null }} />
+      <Tabs.Screen name="admin-competition-registrations" options={{ href: null }} />
 
       {/* ALL ROLES: Notifications tab */}
       <Tabs.Screen

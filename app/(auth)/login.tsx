@@ -68,7 +68,9 @@ export default function LoginScreen() {
 
     // Navigate to role-specific screen
     const userRole = user?.role;
-    if (userRole === "teacher") {
+    if (userRole === "admin") {
+      router.replace("/(tabs)/admin-competitions");
+    } else if (userRole === "teacher") {
       router.replace("/(tabs)/teacher-dashboard");
     } else if (userRole === "parent") {
       router.replace("/(tabs)/children");
@@ -186,6 +188,7 @@ export default function LoginScreen() {
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
+              autoCapitalize="none"
               error={errors.email}
               editable={!loading}
             />

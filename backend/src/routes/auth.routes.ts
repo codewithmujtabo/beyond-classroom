@@ -26,7 +26,7 @@ async function fetchUserWithRole(userId: string) {
     const r = await pool.query("SELECT * FROM students WHERE id = $1", [userId]);
     if (r.rows.length > 0) {
       const s = r.rows[0];
-      roleData = { school: s.school, grade: s.grade, nisn: s.nisn };
+      roleData = { school: s.school_name, grade: s.grade, nisn: s.nisn };
     }
   } else if (user.role === "parent") {
     const r = await pool.query("SELECT * FROM parents WHERE id = $1", [userId]);
@@ -78,7 +78,7 @@ async function fetchUserWithRole(userId: string) {
 // ── POST /api/auth/signup ─────────────────────────────────────────────────
 router.post("/signup", authLimiter, async (req: Request, res: Response) => {
   try {
-    const { email, password, fullName, phone, city, role, roleData, consentAccepted } = req.body;
+    const { email, password, fullName, phone, city, province, role, roleData, consentAccepted } = req.body;
 
     if (!email || !password || !fullName || !role) {
       res.status(400).json({ message: "email, password, fullName, and role are required" });
@@ -110,18 +110,18 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
       await client.query("BEGIN");
 
       const userResult = await client.query(
-        `INSERT INTO users (email, password_hash, full_name, phone, city, role, consent_accepted_at, consent_version)
-         VALUES ($1, $2, $3, $4, $5, $6, now(), $7)
+        `INSERT INTO users (email, password_hash, full_name, phone, city, province, role, consent_accepted_at, consent_version)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8)
          RETURNING id`,
-        [email, passwordHash, fullName, phone || null, city || null, role, "1.0"]
+        [email, passwordHash, fullName, phone || null, city || null, province || null, role, "1.0"]
       );
       const userId = userResult.rows[0].id;
 
       // Insert into role-specific table
       if (role === "student") {
         await client.query(
-          "INSERT INTO students (id, school, grade) VALUES ($1, $2, $3)",
-          [userId, roleData?.school || null, roleData?.grade || null]
+          "INSERT INTO students (id, school_name, grade, npsn, school_address) VALUES ($1, $2, $3, $4, $5)",
+          [userId, roleData?.school || null, roleData?.grade || null, roleData?.npsn || null, roleData?.schoolAddress || null]
         );
       } else if (role === "parent") {
         await client.query(
