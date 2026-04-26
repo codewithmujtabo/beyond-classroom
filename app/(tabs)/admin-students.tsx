@@ -12,26 +12,25 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
-import { API_URL } from "@/constants/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import * as adminService from "@/services/admin.service";
 
 export default function AdminStudentsScreen() {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState("");
 
+  const handlePhonePress = async (phone: string) => {
+    const telUrl = `tel:${phone}`;
+    const supported = await Linking.canOpenURL(telUrl);
+    if (!supported) {
+      return;
+    }
+    await Linking.openURL(telUrl);
+  };
+
   const { data: students = [], isLoading } = useQuery({
     queryKey: ["allStudents"],
-    queryFn: async () => {
-      const token = await AsyncStorage.getItem("token");
-      const response = await fetch(`${API_URL}/users?role=student`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) throw new Error("Failed to fetch students");
-      return response.json();
-    },
+    queryFn: () => adminService.getStudents(),
   });
 
   const filteredStudents = students.filter((student: any) =>
@@ -98,11 +97,11 @@ export default function AdminStudentsScreen() {
                     <Text style={styles.detailValue}>{item.nisn}</Text>
                   </View>
                 )}
-                {item.school && (
+                {item.school_name && (
                   <View style={styles.detailRow}>
                     <IconSymbol name="building.2" size={14} color="#94A3B8" />
                     <Text style={styles.detailLabel}>School:</Text>
-                    <Text style={styles.detailValue}>{item.school}</Text>
+                    <Text style={styles.detailValue}>{item.school_name}</Text>
                   </View>
                 )}
                 {item.grade && (
@@ -116,7 +115,7 @@ export default function AdminStudentsScreen() {
                   <View style={styles.detailRow}>
                     <IconSymbol name="phone" size={14} color="#94A3B8" />
                     <Text style={styles.detailLabel}>Phone:</Text>
-                    <Pressable onPress={() => Linking.openURL(`tel:${item.phone}`)}>
+                    <Pressable onPress={() => handlePhonePress(item.phone)}>
                       <Text style={[styles.detailValue, { color: Brand.primary }]}>
                         {item.phone}
                       </Text>
@@ -143,6 +142,13 @@ export default function AdminStudentsScreen() {
                     })}
                   </Text>
                 </View>
+                {typeof item.registration_count === "number" && (
+                  <View style={styles.detailRow}>
+                    <IconSymbol name="checkmark.seal" size={14} color="#94A3B8" />
+                    <Text style={styles.detailLabel}>Regs:</Text>
+                    <Text style={styles.detailValue}>{item.registration_count}</Text>
+                  </View>
+                )}
               </View>
             </View>
           )}

@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -51,34 +52,38 @@ export function AppAutocomplete({
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const selectingRef = useRef(false);
+  const inputRef = useRef<TextInput | null>(null);
+
+  const runFetch = async (query: string) => {
+    setLoading(true);
+    try {
+      const results = await fetchSuggestions(query);
+      setSuggestions(results);
+      setShowDropdown(results.length > 0);
+    } catch (err) {
+      console.error("Autocomplete search error:", err);
+      setSuggestions([]);
+      setShowDropdown(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Clear previous timer
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
 
-    // Don't search if below min length or not focused
     if (!focused || value.length < minSearchLength) {
       setSuggestions([]);
       setShowDropdown(false);
       return;
     }
 
-    // Debounce the search
-    debounceTimerRef.current = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const results = await fetchSuggestions(value);
-        setSuggestions(results);
-        setShowDropdown(results.length > 0);
-      } catch (err) {
-        console.error("Autocomplete search error:", err);
-        setSuggestions([]);
-        setShowDropdown(false);
-      } finally {
-        setLoading(false);
-      }
+    debounceTimerRef.current = setTimeout(() => {
+      void runFetch(value);
     }, debounceMs);
 
     return () => {
@@ -89,95 +94,125 @@ export function AppAutocomplete({
   }, [value, focused, minSearchLength, debounceMs, fetchSuggestions]);
 
   const handleSelect = (item: AutocompleteItem) => {
+    selectingRef.current = false;
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+    }
     onSelect(item);
     setShowDropdown(false);
+    setFocused(false);
     Keyboard.dismiss();
   };
 
   const handleManualEntry = () => {
+    selectingRef.current = false;
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+    }
     setShowDropdown(false);
+    setFocused(false);
     Keyboard.dismiss();
   };
 
   const handleToggleDropdown = async () => {
-    if (showDropdown) {
-      // Close dropdown
-      setShowDropdown(false);
-    } else {
-      // Open dropdown and fetch all results
-      setLoading(true);
-      try {
-        const results = await fetchSuggestions("");
-        setSuggestions(results);
-        setShowDropdown(results.length > 0);
-      } catch (err) {
-        console.error("Failed to load dropdown options:", err);
-      } finally {
-        setLoading(false);
-      }
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
     }
+
+    if (showDropdown) {
+      setShowDropdown(false);
+      return;
+    }
+
+    setFocused(true);
+    await runFetch("");
   };
 
   return (
-    <View style={styles.wrapper}>
+    <View
+      style={[
+        styles.wrapper,
+        (focused || showDropdown) && styles.wrapperActive,
+      ]}
+    >
       <Text style={styles.label}>{label}</Text>
-      <View
+
+      <Pressable
         style={[
           styles.inputRow,
           focused && styles.inputFocused,
           !!error && styles.inputError,
         ]}
+        onPress={() => {
+          if (props.editable === false) {
+            void handleToggleDropdown();
+            return;
+          }
+          inputRef.current?.focus();
+        }}
       >
         <TextInput
+          ref={inputRef}
           style={styles.input}
           placeholder={placeholder}
           placeholderTextColor="#94A3B8"
           value={value}
           onChangeText={onChangeText}
-          onFocus={() => setFocused(true)}
+          onFocus={() => {
+            if (blurTimeoutRef.current) {
+              clearTimeout(blurTimeoutRef.current);
+            }
+            setFocused(true);
+          }}
           onBlur={() => {
-            setFocused(false);
-            // Delay hiding dropdown to allow tap on items
-            setTimeout(() => setShowDropdown(false), 200);
+            blurTimeoutRef.current = setTimeout(() => {
+              if (selectingRef.current) return;
+              setFocused(false);
+              setShowDropdown(false);
+            }, 220);
           }}
           {...props}
         />
-        {!loading && (
+
+        {!loading ? (
           <TouchableOpacity
-            onPress={handleToggleDropdown}
+            onPress={() => {
+              void handleToggleDropdown();
+            }}
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Text style={styles.dropdownIcon}>
-              {showDropdown ? "▲" : "▼"}
-            </Text>
+            <Text style={styles.dropdownIcon}>{showDropdown ? "▲" : "▼"}</Text>
           </TouchableOpacity>
+        ) : (
+          <ActivityIndicator size="small" color={Brand.primary} />
         )}
-        {loading && <ActivityIndicator size="small" color={Brand.primary} />}
-      </View>
+      </Pressable>
 
       {!!error && <Text style={styles.errorText}>{error}</Text>}
 
-      {/* Dropdown */}
       {showDropdown && (focused || suggestions.length > 0) && (
         <View style={styles.dropdown}>
           <ScrollView
-            nestedScrollEnabled={true}
-            style={{ maxHeight: 200 }}
-            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
+            style={styles.dropdownList}
+            keyboardShouldPersistTaps="always"
             showsVerticalScrollIndicator={suggestions.length > 5}
           >
             {suggestions.map((item) => (
-              <TouchableOpacity
+              <Pressable
                 key={item.id}
                 style={styles.suggestionItem}
+                onPressIn={() => {
+                  selectingRef.current = true;
+                }}
                 onPress={() => handleSelect(item)}
-                activeOpacity={0.7}
               >
                 <Text style={styles.suggestionText}>{item.name}</Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </ScrollView>
+
           {allowCustom && (
             <TouchableOpacity
               style={styles.customOption}
@@ -197,6 +232,12 @@ const styles = StyleSheet.create({
   wrapper: {
     marginBottom: 16,
     zIndex: 1,
+    elevation: 1,
+    position: "relative",
+  },
+  wrapperActive: {
+    zIndex: 9999,
+    elevation: 9999,
   },
   label: {
     fontSize: 13,
@@ -213,7 +254,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#F8FAFC",
     paddingHorizontal: 14,
-    height: 52,
+    minHeight: 52,
   },
   inputFocused: {
     borderColor: Brand.primary,
@@ -226,6 +267,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: "#0F172A",
+    paddingVertical: 12,
   },
   errorText: {
     fontSize: 12,
@@ -245,8 +287,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
-    elevation: 5,
-    zIndex: 1000,
+    elevation: 10000,
+    zIndex: 10000,
+    overflow: "hidden",
+  },
+  dropdownList: {
+    maxHeight: 220,
   },
   suggestionItem: {
     padding: 12,

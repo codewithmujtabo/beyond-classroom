@@ -8,12 +8,30 @@ export interface Competition {
   gradeLevel: string;   // comma-separated e.g. "SD,SMP"
   fee: number;
   quota: number | null;
+  registrationStatus?: string | null;
+  isInternational?: boolean;
+  score?: number;
   regOpenDate: string | null;
   regCloseDate: string | null;
   competitionDate: string | null;
   requiredDocs: string[];
   description: string | null;
+  detailedDescription?: string | null;
   imageUrl: string | null;
+  websiteUrl?: string | null;
+  participantInstructions?: string | null;
+  rounds?: Array<{
+    id: string;
+    roundName: string;
+    roundType: "Online" | "On-site" | "Hybrid";
+    startDate?: string | null;
+    registrationDeadline?: string | null;
+    examDate?: string | null;
+    resultsDate?: string | null;
+    fee: number;
+    location?: string | null;
+    roundOrder?: number;
+  }>;
   createdAt: string;
 }
 
@@ -27,18 +45,26 @@ function mapRow(raw: any): Competition {
   return {
     id: raw.id,
     name: raw.name,
-    organizerName: raw.organizer_name,
+    organizerName: raw.organizer_name ?? raw.organizerName,
     category: raw.category,
-    gradeLevel: raw.grade_level ?? "",
+    gradeLevel: raw.grade_level ?? raw.gradeLevel ?? "",
     fee: raw.fee ?? 0,
     quota: raw.quota ?? null,
-    regOpenDate: raw.reg_open_date ?? null,
-    regCloseDate: raw.reg_close_date ?? null,
-    competitionDate: raw.competition_date ?? null,
-    requiredDocs: raw.required_docs ?? [],
+    registrationStatus: raw.registration_status ?? raw.registrationStatus ?? null,
+    isInternational: raw.is_international ?? raw.isInternational ?? false,
+    score: raw.score ?? undefined,
+    regOpenDate: raw.reg_open_date ?? raw.regOpenDate ?? null,
+    regCloseDate: raw.reg_close_date ?? raw.regCloseDate ?? null,
+    competitionDate: raw.competition_date ?? raw.competitionDate ?? null,
+    requiredDocs: raw.required_docs ?? raw.requiredDocs ?? [],
     description: raw.description ?? null,
-    imageUrl: raw.image_url ?? null,
-    createdAt: raw.created_at,
+    detailedDescription: raw.detailed_description ?? raw.detailedDescription ?? null,
+    imageUrl: raw.image_url ?? raw.imageUrl ?? null,
+    websiteUrl: raw.website_url ?? raw.websiteUrl ?? null,
+    participantInstructions:
+      raw.participant_instructions ?? raw.participantInstructions ?? null,
+    rounds: raw.rounds ?? [],
+    createdAt: raw.created_at ?? raw.createdAt,
   };
 }
 

@@ -1,4 +1,5 @@
 import { HapticTab } from "@/components/haptic-tab";
+import { NotificationTabIcon } from "@/components/NotificationTabIcon";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Brand } from "@/constants/theme";
 import { useUser } from "@/context/AuthContext";
@@ -21,7 +22,6 @@ export default function TabLayout() {
   const isStudent = userRole === "student";
   const isParent = userRole === "parent";
   const isTeacher = userRole === "teacher";
-  const isSchoolAdmin = userRole === "school_admin";
   const isAdmin = userRole === "admin";
 
   return (
@@ -133,6 +133,17 @@ export default function TabLayout() {
         }}
       />
 
+      <Tabs.Screen
+        name="admin-reviews"
+        options={{
+          title: "Reviews",
+          href: isAdmin ? undefined : null,
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="checkmark.circle.fill" color={color} />
+          ),
+        }}
+      />
+
       {/* Hidden admin screens */}
       <Tabs.Screen name="admin-competition-form" options={{ href: null }} />
       <Tabs.Screen name="admin-competition-registrations" options={{ href: null }} />
@@ -142,8 +153,8 @@ export default function TabLayout() {
         name="notifications"
         options={{
           title: "Notifications",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="bell.fill" color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <NotificationTabIcon color={color} focused={focused} />
           ),
         }}
       />
@@ -162,7 +173,7 @@ export default function TabLayout() {
       {/* Always hidden screens */}
       <Tabs.Screen name="index" options={{ href: null }} />
       <Tabs.Screen name="competitions/[id]" options={{ href: null }} />
-      <Tabs.Screen name="profile/link-parent" options={{ href: null }} />
+      <Tabs.Screen name="my-registration-details" options={{ href: null }} />
     </Tabs>
   );
 }

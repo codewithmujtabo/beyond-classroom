@@ -94,7 +94,10 @@ router.get("/", async (req: Request, res: Response) => {
       competitionDate: c.competition_date,
       requiredDocs: c.required_docs,
       description: c.description,
+      registrationStatus: c.registration_status,
+      isInternational: c.is_international,
       imageUrl: c.image_url,
+      participantInstructions: c.participant_instructions,
       createdAt: c.created_at,
     }));
 
@@ -108,14 +111,43 @@ router.get("/", async (req: Request, res: Response) => {
 // ── GET /api/competitions/:id ─────────────────────────────────────────────
 router.get("/:id", async (req: Request, res: Response) => {
   try {
-    const result = await pool.query("SELECT * FROM competitions WHERE id = $1", [req.params.id]);
+    const competitionResult = await pool.query(
+      "SELECT * FROM competitions WHERE id = $1",
+      [req.params.id]
+    );
 
-    if (result.rows.length === 0) {
+    if (competitionResult.rows.length === 0) {
       res.status(404).json({ message: "Competition not found" });
       return;
     }
 
-    const c = result.rows[0];
+    const c = competitionResult.rows[0];
+    const roundsTableExists = await pool.query(
+      "SELECT to_regclass('public.competition_rounds') as table_name"
+    );
+    const hasCompetitionRounds = !!roundsTableExists.rows[0]?.table_name;
+    const rounds = hasCompetitionRounds
+      ? (
+          await pool.query(
+            `SELECT
+              id,
+              round_name,
+              round_type,
+              start_date,
+              registration_deadline,
+              exam_date,
+              results_date,
+              fee,
+              location,
+              round_order
+            FROM competition_rounds
+            WHERE comp_id = $1
+            ORDER BY round_order ASC, created_at ASC`,
+            [req.params.id]
+          )
+        ).rows
+      : [];
+
     res.json({
       id: c.id,
       name: c.name,
@@ -129,7 +161,24 @@ router.get("/:id", async (req: Request, res: Response) => {
       competitionDate: c.competition_date,
       requiredDocs: c.required_docs,
       description: c.description,
+      detailedDescription: c.detailed_description,
+      registrationStatus: c.registration_status,
+      isInternational: c.is_international,
       imageUrl: c.image_url,
+      websiteUrl: c.website_url,
+      participantInstructions: c.participant_instructions,
+      rounds: rounds.map((round) => ({
+        id: round.id,
+        roundName: round.round_name,
+        roundType: round.round_type,
+        startDate: round.start_date,
+        registrationDeadline: round.registration_deadline,
+        examDate: round.exam_date,
+        resultsDate: round.results_date,
+        fee: round.fee,
+        location: round.location,
+        roundOrder: round.round_order,
+      })),
       createdAt: c.created_at,
     });
   } catch (err) {

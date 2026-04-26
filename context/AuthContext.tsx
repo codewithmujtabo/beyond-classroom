@@ -19,7 +19,14 @@ import React, {
 
 export type { AppUser };
 
-export type RegistrationStatus = "registered" | "paid" | "completed";
+export type RegistrationStatus =
+  | "registered"
+  | "pending_review"
+  | "approved"
+  | "rejected"
+  | "paid"
+  | "submitted"
+  | "completed";
 
 export interface Registration {
   id: string;
@@ -43,6 +50,7 @@ interface AuthContextType {
     password: string;
     fullName: string;
     phone: string;
+    province?: string;
     city: string;
     role: string;
     roleData: any;
@@ -56,7 +64,7 @@ interface AuthContextType {
   registerCompetition: (
     compId: string,
     meta?: Record<string, any>
-  ) => Promise<void>;
+  ) => Promise<Registration>;
   markRegistrationPaid: (id: string) => Promise<void>;
   removeRegistration: (id: string) => Promise<void>;
   lastRegisteredId: string | null;
@@ -78,7 +86,14 @@ const AuthContext = createContext<AuthContextType>({
   clearError: () => {},
   fetchUser: async () => {},
   registrations: [],
-  registerCompetition: async () => {},
+  registerCompetition: async () => ({
+    id: "",
+    compId: "",
+    competitionName: "",
+    fee: 0,
+    status: "registered",
+    createdAt: "",
+  }),
   markRegistrationPaid: async () => {},
   removeRegistration: async () => {},
   lastRegisteredId: null,
@@ -166,6 +181,7 @@ export function AuthProvider({
     password: string;
     fullName: string;
     phone: string;
+    province?: string;
     city: string;
     role: string;
     roleData: any;
@@ -204,7 +220,7 @@ export function AuthProvider({
   async function registerCompetition(
     compId: string,
     meta: Record<string, any> = {}
-  ) {
+  ): Promise<Registration> {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const reg: Registration = {
       id,
@@ -219,13 +235,21 @@ export function AuthProvider({
     setRegistrations((s) => [reg, ...s]);
     setLastRegisteredId(compId);
     try {
-      const { status: serverStatus } = await registrationsService.create({ id, compId, meta });
+      const { id: serverId, status: serverStatus } = await registrationsService.create({
+        id,
+        compId,
+        meta,
+      });
       // Server may upgrade status to "paid" for free competitions
-      if (serverStatus !== reg.status) {
-        setRegistrations((s) =>
-          s.map((r) => (r.id === id ? { ...r, status: serverStatus as any } : r))
-        );
-      }
+      const finalRegistration = {
+        ...reg,
+        id: serverId || id,
+        status: serverStatus as RegistrationStatus,
+      };
+      setRegistrations((s) =>
+        s.map((r) => (r.id === id ? finalRegistration : r))
+      );
+      return finalRegistration;
     } catch (err) {
       // Roll back optimistic update on failure
       setRegistrations((s) => s.filter((r) => r.id !== id));
