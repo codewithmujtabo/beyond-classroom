@@ -36,12 +36,17 @@ export default function AdminCompetitionFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!id;
 
+  const goBackToAdminCompetitions = () => {
+    router.replace("/(tabs)/admin-competitions");
+  };
+
   const [name, setName] = useState("");
   const [organizerName, setOrganizerName] = useState("Eduversal");
   const [category, setCategory] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
   const [description, setDescription] = useState("");
   const [detailedDescription, setDetailedDescription] = useState("");
+  const [participantInstructions, setParticipantInstructions] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [registrationStatus, setRegistrationStatus] = useState<"On Going" | "Closed" | "Coming Soon">("Coming Soon");
   const [isInternational, setIsInternational] = useState(false);
@@ -75,40 +80,31 @@ export default function AdminCompetitionFormScreen() {
       setGradeLevel(existingComp.gradeLevel || "");
       setDescription(existingComp.description || "");
       setDetailedDescription(existingComp.detailedDescription || "");
+      setParticipantInstructions(existingComp.participantInstructions || "");
       setWebsiteUrl(existingComp.websiteUrl || "");
-      setRegistrationStatus(existingComp.registrationStatus || "Coming Soon");
+      setRegistrationStatus(
+        (existingComp.registrationStatus as "Coming Soon" | "On Going" | "Closed") ||
+          "Coming Soon"
+      );
       setIsInternational(existingComp.isInternational || false);
       setFee(String(existingComp.fee || 0));
       setQuota(String(existingComp.quota || ""));
+      if (existingComp.rounds && existingComp.rounds.length > 0) {
+        setRounds(
+          existingComp.rounds.map((round) => ({
+            roundName: round.roundName,
+            roundType: round.roundType,
+            startDate: round.startDate || "",
+            registrationDeadline: round.registrationDeadline || "",
+            examDate: round.examDate || "",
+            resultsDate: round.resultsDate || "",
+            fee: String(round.fee || 0),
+            location: round.location || "",
+          }))
+        );
+      }
     }
   }, [existingComp]);
-
-  // Fetch rounds if editing
-  const { data: existingRounds } = useQuery({
-    queryKey: ["competitionRounds", id],
-    queryFn: async () => {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/competitions/${id}/rounds`);
-      return response.json();
-    },
-    enabled: isEdit,
-  });
-
-  useEffect(() => {
-    if (existingRounds && existingRounds.length > 0) {
-      setRounds(
-        existingRounds.map((r: any) => ({
-          roundName: r.round_name,
-          roundType: r.round_type,
-          startDate: r.start_date || "",
-          registrationDeadline: r.registration_deadline || "",
-          examDate: r.exam_date || "",
-          resultsDate: r.results_date || "",
-          fee: String(r.fee || 0),
-          location: r.location || "",
-        }))
-      );
-    }
-  }, [existingRounds]);
 
   const saveMutation = useMutation({
     mutationFn: (data: any) =>
@@ -118,7 +114,7 @@ export default function AdminCompetitionFormScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["adminCompetitions"] });
       Alert.alert("Success", `Competition ${isEdit ? "updated" : "created"} successfully`);
-      router.back();
+      goBackToAdminCompetitions();
     },
     onError: (error: any) => {
       Alert.alert("Error", error.message || `Failed to ${isEdit ? "update" : "create"} competition`);
@@ -138,6 +134,7 @@ export default function AdminCompetitionFormScreen() {
       gradeLevel,
       description,
       detailedDescription,
+      participantInstructions,
       websiteUrl,
       registrationStatus,
       isInternational,
@@ -199,13 +196,13 @@ export default function AdminCompetitionFormScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={goBackToAdminCompetitions}>
           <IconSymbol name="chevron.left" size={24} color="#0F172A" />
         </Pressable>
         <Text style={styles.headerTitle}>{isEdit ? "Edit" : "Add"} Competition</Text>
         <View style={{ width: 24 }} />
       </View>
-
+      
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.sectionTitle}>Basic Information</Text>
 
@@ -265,6 +262,17 @@ export default function AdminCompetitionFormScreen() {
           placeholderTextColor="#94A3B8"
           multiline
           numberOfLines={5}
+        />
+
+        <Text style={styles.label}>Participant Instructions</Text>
+        <TextInput
+          style={[styles.input, styles.textAreaLarge]}
+          value={participantInstructions}
+          onChangeText={setParticipantInstructions}
+          placeholder="What approved students should know: website, venue, arrival time, what to bring, briefing notes, contact person..."
+          placeholderTextColor="#94A3B8"
+          multiline
+          numberOfLines={7}
         />
 
         <Text style={styles.label}>Website URL</Text>
@@ -453,6 +461,7 @@ const styles = StyleSheet.create({
     color: "#0F172A",
   },
   textArea: { height: 100, textAlignVertical: "top" },
+  textAreaLarge: { height: 140, textAlignVertical: "top" },
   statusButtons: { flexDirection: "row", gap: 8 },
   statusButton: {
     flex: 1,

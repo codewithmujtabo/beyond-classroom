@@ -6,7 +6,6 @@
  */
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Brand } from "@/constants/theme";
 import * as notificationsService from "@/services/notifications.service";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";

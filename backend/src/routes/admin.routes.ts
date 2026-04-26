@@ -15,15 +15,29 @@ router.use(adminOnly);
  */
 router.get("/competitions", async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT
-        c.*,
-        COUNT(cr.id) as actual_round_count
-      FROM competitions c
-      LEFT JOIN competition_rounds cr ON c.id = cr.comp_id
-      GROUP BY c.id
-      ORDER BY c.created_at DESC
-    `);
+    const roundsTableExists = await pool.query(
+      "SELECT to_regclass('public.competition_rounds') as table_name"
+    );
+
+    const hasCompetitionRounds = !!roundsTableExists.rows[0]?.table_name;
+
+    const result = hasCompetitionRounds
+      ? await pool.query(`
+          SELECT
+            c.*,
+            COUNT(cr.id)::int as actual_round_count
+          FROM competitions c
+          LEFT JOIN competition_rounds cr ON c.id = cr.comp_id
+          GROUP BY c.id
+          ORDER BY c.created_at DESC
+        `)
+      : await pool.query(`
+          SELECT
+            c.*,
+            COALESCE(c.round_count, 1)::int as actual_round_count
+          FROM competitions c
+          ORDER BY c.created_at DESC
+        `);
 
     res.json(result.rows);
   } catch (error) {
@@ -60,6 +74,7 @@ router.post("/competitions", async (req, res) => {
       competitionDate,
       requiredDocs,
       imageUrl,
+      participantInstructions,
       rounds,
     } = req.body;
 
@@ -81,7 +96,8 @@ router.post("/competitions", async (req, res) => {
         detailed_description, description, fee, quota,
         reg_open_date, reg_close_date, competition_date,
         required_docs, image_url, round_count
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+        , participant_instructions
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
       RETURNING *`,
       [
         compId,
@@ -103,6 +119,7 @@ router.post("/competitions", async (req, res) => {
         requiredDocs || [],
         imageUrl,
         rounds?.length || 0,
+        participantInstructions || null,
       ]
     );
 
@@ -176,6 +193,7 @@ router.put("/competitions/:id", async (req, res) => {
       competitionDate,
       requiredDocs,
       imageUrl,
+      participantInstructions,
       rounds,
     } = req.body;
 
@@ -199,8 +217,9 @@ router.put("/competitions/:id", async (req, res) => {
         competition_date = $15,
         required_docs = $16,
         image_url = $17,
-        round_count = $18
-      WHERE id = $19
+        round_count = $18,
+        participant_instructions = $19
+      WHERE id = $20
       RETURNING *`,
       [
         name,
@@ -221,6 +240,7 @@ router.put("/competitions/:id", async (req, res) => {
         requiredDocs || [],
         imageUrl,
         rounds?.length || 0,
+        participantInstructions || null,
         id,
       ]
     );
@@ -329,12 +349,12 @@ router.get("/competitions/:id/registrations", async (req, res) => {
         s.school_name,
         s.grade,
         s.date_of_birth,
-        s.address,
+        s.school_address,
         s.parent_phone,
         s.parent_school_id
       FROM registrations r
       JOIN users u ON r.user_id = u.id
-      LEFT JOIN students s ON u.id = s.user_id
+      LEFT JOIN students s ON u.id = s.id
       WHERE r.comp_id = $1
       ORDER BY r.created_at DESC`,
       [id]
@@ -367,11 +387,11 @@ router.get("/competitions/:id/registrations/export", async (req, res) => {
         s.school_name,
         s.grade,
         s.date_of_birth,
-        s.address,
+        s.school_address,
         s.parent_phone
       FROM registrations r
       JOIN users u ON r.user_id = u.id
-      LEFT JOIN students s ON u.id = s.user_id
+      LEFT JOIN students s ON u.id = s.id
       WHERE r.comp_id = $1
       ORDER BY r.created_at DESC`,
       [id]
@@ -407,7 +427,7 @@ router.get("/competitions/:id/registrations/export", async (req, res) => {
         `"${row.school_name || ""}"`,
         row.grade || "",
         row.date_of_birth ? new Date(row.date_of_birth).toLocaleDateString("id-ID") : "",
-        `"${row.address || ""}"`,
+        `"${row.school_address || ""}"`,
         row.parent_phone || "",
       ];
       csvRows.push(values.join(","));
@@ -424,6 +444,52 @@ router.get("/competitions/:id/registrations/export", async (req, res) => {
   } catch (error) {
     console.error("Error exporting registrations:", error);
     res.status(500).json({ message: "Failed to export registrations" });
+  }
+});
+
+/**
+ * GET /api/admin/students
+ * Get all student accounts with profile details and registration counts
+ */
+router.get("/students", async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        u.id,
+        u.full_name,
+        u.email,
+        u.phone,
+        u.city,
+        u.created_at,
+        s.nisn,
+        s.school_name,
+        s.grade,
+        s.date_of_birth,
+        s.school_address,
+        COUNT(r.id)::int as registration_count
+      FROM users u
+      LEFT JOIN students s ON u.id = s.id
+      LEFT JOIN registrations r ON u.id = r.user_id
+      WHERE u.role = 'student'
+      GROUP BY
+        u.id,
+        u.full_name,
+        u.email,
+        u.phone,
+        u.city,
+        u.created_at,
+        s.nisn,
+        s.school_name,
+        s.grade,
+        s.date_of_birth,
+        s.school_address
+      ORDER BY u.created_at DESC`
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching students:", error);
+    res.status(500).json({ message: "Failed to fetch students" });
   }
 });
 
@@ -449,6 +515,239 @@ router.get("/stats", async (req, res) => {
   } catch (error) {
     console.error("Error fetching stats:", error);
     res.status(500).json({ message: "Failed to fetch statistics" });
+  }
+});
+
+/**
+ * GET /api/admin/registrations/pending
+ * Get all pending review registrations
+ */
+router.get("/registrations/pending", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        r.id as registration_id,
+        r.status,
+        r.created_at as registered_at,
+        r.updated_at,
+        u.id as student_id,
+        u.full_name as student_name,
+        u.email as student_email,
+        u.phone as student_phone,
+        s.school_name,
+        s.grade,
+        s.nisn,
+        c.id as competition_id,
+        c.name as competition_name,
+        c.fee,
+        p.id as payment_id,
+        p.payment_proof_url,
+        p.proof_submitted_at,
+        p.amount as paid_amount
+      FROM registrations r
+      JOIN users u ON r.user_id = u.id
+      LEFT JOIN students s ON u.id = s.id
+      JOIN competitions c ON r.comp_id = c.id
+      LEFT JOIN payments p ON r.id = p.registration_id
+      WHERE r.status = 'pending_review'
+      ORDER BY p.proof_submitted_at DESC NULLS LAST, r.created_at DESC`
+    );
+
+    res.json({
+      pendingReviews: result.rows.map((row) => ({
+        registrationId: row.registration_id,
+        status: row.status,
+        registeredAt: row.registered_at,
+        updatedAt: row.updated_at,
+        student: {
+          id: row.student_id,
+          name: row.student_name,
+          email: row.student_email,
+          phone: row.student_phone,
+          school: row.school_name,
+          grade: row.grade,
+          nisn: row.nisn,
+        },
+        competition: {
+          id: row.competition_id,
+          name: row.competition_name,
+          fee: row.fee,
+        },
+        payment: {
+          id: row.payment_id,
+          proofUrl: row.payment_proof_url,
+          proofSubmittedAt: row.proof_submitted_at,
+          amount: row.paid_amount,
+        },
+      })),
+    });
+  } catch (err) {
+    console.error("Get pending reviews error:", err);
+    res.status(500).json({ message: "Failed to fetch pending reviews" });
+  }
+});
+
+/**
+ * GET /api/admin/registrations/:id
+ * Get full registration details
+ */
+router.get("/registrations/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `SELECT
+        r.*,
+        u.full_name, u.email, u.phone, u.city,
+        s.school_name, s.grade, s.nisn,
+        c.name as competition_name, c.fee, c.category,
+        p.payment_proof_url, p.proof_submitted_at, p.payment_method, p.amount,
+        admin_user.full_name as reviewed_by_name
+      FROM registrations r
+      JOIN users u ON r.user_id = u.id
+      LEFT JOIN students s ON u.id = s.id
+      JOIN competitions c ON r.comp_id = c.id
+      LEFT JOIN payments p ON r.id = p.registration_id
+      LEFT JOIN users admin_user ON r.reviewed_by = admin_user.id
+      WHERE r.id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ message: "Registration not found" });
+      return;
+    }
+
+    res.json({ registration: result.rows[0] });
+  } catch (err) {
+    console.error("Get registration error:", err);
+    res.status(500).json({ message: "Failed to fetch registration" });
+  }
+});
+
+/**
+ * POST /api/admin/registrations/:id/approve
+ * Approve a registration
+ */
+router.post("/registrations/:id/approve", async (req, res) => {
+  try {
+    const adminId = req.userId!;
+    const { id } = req.params;
+
+    // Get registration details for notification
+    const regResult = await pool.query(
+      `SELECT r.user_id, c.name as competition_name, u.full_name as student_name
+       FROM registrations r
+       JOIN competitions c ON r.comp_id = c.id
+       JOIN users u ON r.user_id = u.id
+       WHERE r.id = $1`,
+      [id]
+    );
+
+    if (regResult.rows.length === 0) {
+      res.status(404).json({ message: "Registration not found" });
+      return;
+    }
+
+    const { user_id, competition_name } = regResult.rows[0];
+
+    // Update registration status
+    await pool.query(
+      `UPDATE registrations
+       SET status = 'approved',
+           reviewed_by = $1,
+           reviewed_at = now(),
+           updated_at = now()
+       WHERE id = $2`,
+      [adminId, id]
+    );
+
+    // Send approval notification to student
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        user_id,
+        "registration_approved",
+        "🎉 Registration Approved!",
+        `Congratulations! Your registration for ${competition_name} has been approved. You're all set for the competition!`,
+        JSON.stringify({ registrationId: id }),
+      ]
+    );
+
+    res.json({
+      message: "Registration approved successfully",
+      status: "approved",
+    });
+  } catch (err) {
+    console.error("Approve registration error:", err);
+    res.status(500).json({ message: "Failed to approve registration" });
+  }
+});
+
+/**
+ * POST /api/admin/registrations/:id/reject
+ * Reject a registration
+ */
+router.post("/registrations/:id/reject", async (req, res) => {
+  try {
+    const adminId = req.userId!;
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason || !reason.trim()) {
+      res.status(400).json({ message: "Rejection reason is required" });
+      return;
+    }
+
+    // Get registration details for notification
+    const regResult = await pool.query(
+      `SELECT r.user_id, c.name as competition_name
+       FROM registrations r
+       JOIN competitions c ON r.comp_id = c.id
+       WHERE r.id = $1`,
+      [id]
+    );
+
+    if (regResult.rows.length === 0) {
+      res.status(404).json({ message: "Registration not found" });
+      return;
+    }
+
+    const { user_id, competition_name } = regResult.rows[0];
+
+    // Update registration status
+    await pool.query(
+      `UPDATE registrations
+       SET status = 'rejected',
+           reviewed_by = $1,
+           reviewed_at = now(),
+           rejection_reason = $2,
+           updated_at = now()
+       WHERE id = $3`,
+      [adminId, reason.trim(), id]
+    );
+
+    // Send rejection notification to student
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        user_id,
+        "registration_rejected",
+        "Registration Not Approved",
+        `Your registration for ${competition_name} was not approved. Reason: ${reason}. Please contact support if you have questions.`,
+        JSON.stringify({ registrationId: id, reason }),
+      ]
+    );
+
+    res.json({
+      message: "Registration rejected",
+      status: "rejected",
+    });
+  } catch (err) {
+    console.error("Reject registration error:", err);
+    res.status(500).json({ message: "Failed to reject registration" });
   }
 });
 

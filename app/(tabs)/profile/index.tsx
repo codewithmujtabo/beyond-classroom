@@ -1,6 +1,7 @@
 import { Brand } from "@/constants/theme";
 import { useUser } from "@/context/AuthContext";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import React from "react";
 import {
   Image,
   ScrollView,
@@ -12,8 +13,14 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ProfileScreen() {
-  const { user, registrations } = useUser();
+  const { user, registrations, refreshRegistrations } = useUser();
   const insets = useSafeAreaInsets();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshRegistrations();
+    }, [refreshRegistrations])
+  );
 
   const fullName = (user as any)?.fullName ?? (user as any)?.name ?? "—";
   const initial = fullName.charAt(0).toUpperCase();

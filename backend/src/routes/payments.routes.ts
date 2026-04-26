@@ -1,10 +1,13 @@
 import crypto from "crypto";
 import { Router, Request, Response } from "express";
+import multer from "multer";
+import path from "path";
 import { pool } from "../config/database";
 import { env } from "../config/env";
 import { authMiddleware } from "../middleware/auth";
 import { createSnapToken } from "../services/midtrans.service";
 import * as pushService from "../services/push.service";
+import { userUploadDir } from "../services/storage.service";
 
 const router = Router();
 
@@ -58,11 +61,9 @@ router.post("/webhook", async (req: Request, res: Response) => {
       (transaction_status === "capture" && fraud_status === "accept");
 
     let newPaymentStatus: string;
-    let newRegStatus: string | null = null;
 
     if (isSuccess) {
       newPaymentStatus = "settlement";
-      newRegStatus = "paid";
     } else if (transaction_status === "pending") {
       newPaymentStatus = "pending";
     } else if (["deny", "cancel", "expire", "failure"].includes(transaction_status)) {
@@ -82,15 +83,8 @@ router.post("/webhook", async (req: Request, res: Response) => {
       [newPaymentStatus, transaction_id ?? null, payment_type ?? null, paymentDbId]
     );
 
-    // ── Update registration on success ─────────────────────────────────────
-    if (newRegStatus) {
-      await pool.query(
-        `UPDATE registrations SET status = $1 WHERE id = $2`,
-        [newRegStatus, registration_id]
-      );
-
-      // Sprint 4, Track C (T10) — Schedule post-registration nudge
-      // Get registration details for the notification
+    // ── Notify student to upload proof after payment ───────────────────────
+    if (isSuccess) {
       const regResult = await pool.query(
         `SELECT r.user_id, r.comp_id, c.name as comp_name
          FROM registrations r
@@ -102,37 +96,15 @@ router.post("/webhook", async (req: Request, res: Response) => {
       if (regResult.rows.length > 0) {
         const { user_id, comp_id, comp_name } = regResult.rows[0];
 
-        // Send immediate payment confirmation notification
         await pushService.sendPushNotification(
           user_id,
-          "Payment Confirmed!",
-          `Your payment for ${comp_name} has been confirmed. You're all set!`,
+          "Payment Recorded",
+          `Your payment for ${comp_name} was recorded. Upload your screenshot or receipt so admin can review your application.`,
           {
             type: "payment_success",
             compId: comp_id,
             registrationId: registration_id,
           }
-        );
-
-        // Schedule notification for 30 minutes later
-        const scheduledFor = new Date(Date.now() + 30 * 60 * 1000);
-
-        await pool.query(
-          `INSERT INTO notifications
-           (user_id, type, title, body, data, scheduled_for, sent)
-           VALUES ($1, $2, $3, $4, $5, $6, FALSE)`,
-          [
-            user_id,
-            "post_registration_nudge",
-            "More competitions you might like",
-            `Based on ${comp_name}, we found similar competitions for you.`,
-            JSON.stringify({ compId: comp_id }),
-            scheduledFor,
-          ]
-        );
-
-        console.log(
-          `Scheduled post-registration nudge for user ${user_id} at ${scheduledFor.toISOString()}`
         );
       }
     }
@@ -149,6 +121,69 @@ router.post("/webhook", async (req: Request, res: Response) => {
 
 // All routes below require auth ───────────────────────────────────────────────
 router.use(authMiddleware);
+
+// ── POST /api/payments/manual-intent ─────────────────────────────────────────
+router.post("/manual-intent", async (req: Request, res: Response) => {
+  try {
+    const { registrationId } = req.body;
+
+    if (!registrationId) {
+      res.status(400).json({ message: "registrationId is required" });
+      return;
+    }
+
+    const registrationResult = await pool.query(
+      `SELECT
+         r.id,
+         r.status,
+         r.user_id,
+         c.fee,
+         c.name as competition_name
+       FROM registrations r
+       JOIN competitions c ON c.id = r.comp_id
+       WHERE r.id = $1 AND r.user_id = $2`,
+      [registrationId, req.userId]
+    );
+
+    if (registrationResult.rows.length === 0) {
+      res.status(404).json({ message: "Registration not found" });
+      return;
+    }
+
+    const registration = registrationResult.rows[0];
+
+    if (registration.fee === 0) {
+      res.status(400).json({ message: "This competition does not require payment" });
+      return;
+    }
+
+    const existingPayment = await pool.query(
+      `SELECT id, amount, payment_status, payment_proof_url
+       FROM payments
+       WHERE registration_id = $1
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [registrationId]
+    );
+
+    if (existingPayment.rows.length > 0) {
+      res.json({
+        paymentId: existingPayment.rows[0].id,
+        amount: existingPayment.rows[0].amount,
+        paymentStatus: existingPayment.rows[0].payment_status,
+        proofUrl: existingPayment.rows[0].payment_proof_url,
+      });
+      return;
+    }
+
+    res.status(400).json({
+      message: "Complete the Midtrans payment first, then upload your screenshot or receipt.",
+    });
+  } catch (err: any) {
+    console.error("Create manual payment intent error:", err);
+    res.status(500).json({ message: err.message || "Failed to create payment intent" });
+  }
+});
 
 // ── POST /api/payments/snap ───────────────────────────────────────────────────
 router.post("/snap", async (req: Request, res: Response) => {
@@ -188,8 +223,13 @@ router.post("/snap", async (req: Request, res: Response) => {
       return;
     }
 
-    if (row.reg_status === "paid") {
-      res.status(400).json({ message: "This registration is already paid" });
+    if (["approved", "completed", "paid"].includes(row.reg_status)) {
+      res.status(400).json({ message: "This registration has already been finalized" });
+      return;
+    }
+
+    if (row.reg_status === "pending_review") {
+      res.status(400).json({ message: "Payment proof already submitted and awaiting review" });
       return;
     }
 
@@ -244,6 +284,141 @@ router.post("/snap", async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error("Create snap token error:", err);
     res.status(500).json({ message: err.message || "Failed to create payment" });
+  }
+});
+
+// ── Multer config for payment proof uploads ──────────────────────────────────
+const uploadProof = multer({
+  storage: multer.diskStorage({
+    destination: (req, _file, cb) => {
+      cb(null, userUploadDir(req.userId!));
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname);
+      const base = path.basename(file.originalname, ext)
+        .replace(/[^a-z0-9]/gi, "_")
+        .toLowerCase()
+        .slice(0, 40);
+      cb(null, `proof-${Date.now()}-${base}${ext}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only PDF, JPG, and PNG files are allowed"));
+    }
+  },
+});
+
+// ── POST /api/payments/:paymentId/upload-proof ───────────────────────────────
+router.post(
+  "/:paymentId/upload-proof",
+  uploadProof.single("proof"),
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.userId!;
+      const { paymentId } = req.params;
+      const file = req.file;
+
+      if (!file) {
+        res.status(400).json({ message: "No proof file uploaded" });
+        return;
+      }
+
+      // Verify payment exists and belongs to user
+      const paymentResult = await pool.query(
+        `SELECT p.*, r.comp_id, c.name as competition_name
+         FROM payments p
+         JOIN registrations r ON p.registration_id = r.id
+         JOIN competitions c ON r.comp_id = c.id
+         WHERE p.id = $1 AND p.user_id = $2`,
+        [paymentId, userId]
+      );
+
+      if (paymentResult.rows.length === 0) {
+        res.status(404).json({ message: "Payment not found" });
+        return;
+      }
+
+      const payment = paymentResult.rows[0];
+      const fileUrl = `/uploads/${userId}/${file.filename}`;
+
+      // Update payment with proof URL
+      await pool.query(
+        `UPDATE payments
+         SET payment_proof_url = $1, proof_submitted_at = now()
+         WHERE id = $2`,
+        [fileUrl, paymentId]
+      );
+
+      // Update registration status to pending_review
+      await pool.query(
+        `UPDATE registrations
+         SET status = 'pending_review', updated_at = now()
+         WHERE id = $1`,
+        [payment.registration_id]
+      );
+
+      // Send notification to user
+      await pool.query(
+        `INSERT INTO notifications (user_id, type, title, body, data)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          userId,
+          "proof_submitted",
+          "Payment Proof Submitted",
+          `Your payment proof for ${payment.competition_name} is under review. We'll notify you once it's verified.`,
+          JSON.stringify({
+            compId: payment.comp_id,
+            registrationId: payment.registration_id,
+          }),
+        ]
+      );
+
+      res.json({
+        message: "Payment proof uploaded successfully",
+        proofUrl: fileUrl,
+        status: "pending_review",
+      });
+    } catch (err: any) {
+      console.error("Upload proof error:", err);
+      res.status(500).json({ message: err.message || "Failed to upload proof" });
+    }
+  }
+);
+
+// ── GET /api/payments/:paymentId/proof ───────────────────────────────────────
+router.get("/:paymentId/proof", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const userRole = req.userRole;
+    const { paymentId } = req.params;
+
+    const result = await pool.query(
+      "SELECT payment_proof_url, user_id FROM payments WHERE id = $1",
+      [paymentId]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ message: "Payment not found" });
+      return;
+    }
+
+    const payment = result.rows[0];
+
+    // Only owner or admin can view proof
+    if (payment.user_id !== userId && userRole !== "admin") {
+      res.status(403).json({ message: "Access denied" });
+      return;
+    }
+
+    res.json({ proofUrl: payment.payment_proof_url });
+  } catch (err) {
+    console.error("Get proof error:", err);
+    res.status(500).json({ message: "Failed to get proof" });
   }
 });
 

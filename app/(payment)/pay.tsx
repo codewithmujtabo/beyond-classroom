@@ -1,5 +1,6 @@
 import { Brand } from "@/constants/theme";
 import { useUser } from "@/context/AuthContext";
+import * as ImagePicker from "expo-image-picker";
 import * as paymentsService from "@/services/payments.service";
 import * as WebBrowser from "expo-web-browser";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -28,16 +29,16 @@ const STATE_CONTENT: Record<
 > = {
   success: {
     emoji: "🎉",
-    title: "Payment Successful!",
+    title: "Payment Completed!",
     subtitle:
-      "Your registration has been confirmed. Check the My Registrations tab to see the status.",
+      "Now take a screenshot of the Midtrans result and upload it so admin can review your application.",
     accent: "#059669",
   },
   pending: {
     emoji: "⏳",
     title: "Awaiting Confirmation",
     subtitle:
-      "Your payment is being processed. We will update the status automatically.",
+      "If the payment page shows your transaction details, capture a screenshot and upload it for admin review.",
     accent: "#D97706",
   },
   failed: {
@@ -51,7 +52,7 @@ const STATE_CONTENT: Record<
     emoji: "↩️",
     title: "Page Closed",
     subtitle:
-      "If you've already completed payment, the status will appear in My Registrations. If not, you can try again.",
+      "If you already completed the payment, upload the screenshot now. Otherwise you can reopen Midtrans and finish it.",
     accent: "#64748B",
   },
   error: {
@@ -70,6 +71,8 @@ export default function PayScreen() {
 
   const [paymentState, setPaymentState] = useState<PaymentState>("loading");
   const [errorDetail, setErrorDetail] = useState("");
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
 
   // Prevent double-fire in StrictMode
   const started = useRef(false);
@@ -85,7 +88,9 @@ export default function PayScreen() {
       setPaymentState("loading");
 
       // 1. Get Snap token from our backend
-      const { redirectUrl } = await paymentsService.createSnapToken(registrationId);
+      const { redirectUrl, paymentId: createdPaymentId } =
+        await paymentsService.createSnapToken(registrationId);
+      setPaymentId(createdPaymentId);
 
       // 2. Open Midtrans Snap in an in-app browser session.
       //    openAuthSessionAsync watches for the beyondclassroom:// scheme redirect
@@ -108,7 +113,6 @@ export default function PayScreen() {
           txStatus === "capture" ||
           statusCode === "200"
         ) {
-          await refreshRegistrations();
           setPaymentState("success");
         } else if (txStatus === "pending") {
           setPaymentState("pending");
@@ -120,14 +124,12 @@ export default function PayScreen() {
         // Midtrans finishes payment but ASWebAuthenticationSession doesn't catch
         // the beyondclassroom:// redirect. Refresh registrations so the webhook
         // result (if it already arrived) is reflected in the UI.
-        await refreshRegistrations();
         setPaymentState("cancelled");
       }
     } catch (err: any) {
       // "already paid" means the webhook already marked this registration as paid
       // (common on retry after the iOS browser-close issue above).
       if (err?.message?.toLowerCase().includes("already paid")) {
-        await refreshRegistrations();
         setPaymentState("success");
         return;
       }
@@ -142,6 +144,43 @@ export default function PayScreen() {
     started.current = true;
     startPayment();
   }, [startPayment]);
+
+  const uploadScreenshot = useCallback(async () => {
+    if (!paymentId) return;
+
+    try {
+      setUploadingProof(true);
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== "granted") {
+        setErrorDetail("Photo library permission is required to upload your payment screenshot.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.9,
+      });
+
+      if (result.canceled || !result.assets?.[0]) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      await paymentsService.uploadPaymentProof(paymentId, {
+        uri: asset.uri,
+        name: asset.fileName || `payment-proof-${Date.now()}.jpg`,
+        mimeType: asset.mimeType || "image/jpeg",
+      });
+      await refreshRegistrations();
+      router.replace("/(tabs)/my-competitions");
+    } catch (err: any) {
+      console.error("Upload screenshot error:", err);
+      setErrorDetail(err?.message || "Failed to upload screenshot.");
+      setPaymentState("error");
+    } finally {
+      setUploadingProof(false);
+    }
+  }, [paymentId, refreshRegistrations, router]);
 
   // ── Loading / Opening ──────────────────────────────────────────────────────
   if (paymentState === "loading" || paymentState === "opening") {
@@ -180,14 +219,19 @@ export default function PayScreen() {
       </View>
 
       <View style={styles.actions}>
-        {/* Primary action */}
-        {paymentState === "success" || paymentState === "pending" || paymentState === "cancelled" ? (
+        {(paymentState === "success" ||
+          paymentState === "pending" ||
+          paymentState === "cancelled") &&
+        paymentId ? (
           <TouchableOpacity
-            style={[styles.primaryBtn, { backgroundColor: content.accent }]}
-            onPress={() => router.replace("/(tabs)/my-competitions")}
+            style={styles.primaryBtn}
+            onPress={uploadScreenshot}
             activeOpacity={0.85}
+            disabled={uploadingProof}
           >
-            <Text style={styles.primaryBtnText}>View My Registrations</Text>
+            <Text style={styles.primaryBtnText}>
+              {uploadingProof ? "Uploading..." : "Upload Screenshot"}
+            </Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -202,7 +246,18 @@ export default function PayScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Allow retry from cancelled state too */}
+        {paymentState === "success" || paymentState === "pending" || paymentState === "cancelled" ? (
+          <TouchableOpacity
+            style={[styles.secondaryBtn, styles.secondaryOutline]}
+            onPress={() => router.replace("/(tabs)/my-competitions")}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.secondaryBtnText, { color: content.accent }]}>
+              Upload Later
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
         {paymentState === "cancelled" && (
           <TouchableOpacity
             style={styles.secondaryBtn}
@@ -294,6 +349,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center",
     backgroundColor: "#F1F5F9",
+  },
+  secondaryOutline: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
   },
   secondaryBtnText: { color: "#64748B", fontWeight: "600", fontSize: 15 },
 });

@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import * as adminService from "@/services/admin.service";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
 export default function AdminCompetitionRegistrationsScreen() {
@@ -24,7 +24,20 @@ export default function AdminCompetitionRegistrationsScreen() {
   const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
   const [exporting, setExporting] = useState(false);
 
-  const { data: registrations = [], isLoading, refetch } = useQuery({
+  const goBackToAdminCompetitions = () => {
+    router.replace("/(tabs)/admin-competitions");
+  };
+
+  const handlePhonePress = async (phone: string) => {
+    const telUrl = `tel:${phone}`;
+    const supported = await Linking.canOpenURL(telUrl);
+    if (!supported) {
+      return;
+    }
+    await Linking.openURL(telUrl);
+  };
+
+  const { data: registrations = [], isLoading } = useQuery({
     queryKey: ["competitionRegistrations", id],
     queryFn: () => adminService.getCompetitionRegistrations(id),
   });
@@ -78,7 +91,7 @@ export default function AdminCompetitionRegistrationsScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={goBackToAdminCompetitions}>
           <IconSymbol name="chevron.left" size={24} color="#0F172A" />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>
@@ -161,10 +174,10 @@ export default function AdminCompetitionRegistrationsScreen() {
                   <Text style={styles.detailValue}>{item.nisn}</Text>
                 </View>
               )}
-              {item.school && (
+              {item.school_name && (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>School:</Text>
-                  <Text style={styles.detailValue}>{item.school}</Text>
+                  <Text style={styles.detailValue}>{item.school_name}</Text>
                 </View>
               )}
               {item.grade && (
@@ -176,7 +189,7 @@ export default function AdminCompetitionRegistrationsScreen() {
               {item.phone && (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Phone:</Text>
-                  <Pressable onPress={() => Linking.openURL(`tel:${item.phone}`)}>
+                  <Pressable onPress={() => handlePhonePress(item.phone)}>
                     <Text style={[styles.detailValue, { color: Brand.primary }]}>
                       {item.phone}
                     </Text>

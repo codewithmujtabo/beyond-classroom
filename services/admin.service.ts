@@ -1,8 +1,8 @@
 import { API_URL } from "@/constants/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getToken } from "./token.service";
 
 const getAuthHeaders = async () => {
-  const token = await AsyncStorage.getItem("token");
+  const token = await getToken();
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
@@ -38,6 +38,7 @@ export interface CompetitionFormData {
   competitionDate?: string;
   requiredDocs?: string[];
   imageUrl?: string;
+  participantInstructions?: string;
   rounds: CompetitionRound[];
 }
 
@@ -136,4 +137,86 @@ export const getStats = async () => {
   }
 
   return response.json();
+};
+
+export const getStudents = async () => {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_URL}/admin/students`, {
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch students");
+  }
+
+  return response.json();
+};
+
+export interface PendingReview {
+  registrationId: string;
+  status: string;
+  registeredAt: string;
+  updatedAt: string;
+  student: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    school: string;
+    grade: string;
+    nisn: string;
+  };
+  competition: {
+    id: string;
+    name: string;
+    fee: number;
+  };
+  payment: {
+    id: string;
+    proofUrl: string;
+    proofSubmittedAt: string;
+    amount: number;
+  };
+}
+
+export const getPendingReviews = async (): Promise<PendingReview[]> => {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_URL}/admin/registrations/pending`, {
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch pending reviews");
+  }
+
+  const data = await response.json();
+  return data.pendingReviews;
+};
+
+export const approveRegistration = async (registrationId: string): Promise<void> => {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_URL}/admin/registrations/${registrationId}/approve`, {
+    method: "POST",
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to approve registration");
+  }
+};
+
+export const rejectRegistration = async (
+  registrationId: string,
+  reason: string
+): Promise<void> => {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_URL}/admin/registrations/${registrationId}/reject`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ reason }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to reject registration");
+  }
 };

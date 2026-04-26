@@ -22,7 +22,13 @@ export default function AdminCompetitionsScreen() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: competitions = [], isLoading, refetch } = useQuery({
+  const {
+    data: competitions = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["adminCompetitions"],
     queryFn: () => adminService.getCompetitions(),
   });
@@ -61,6 +67,33 @@ export default function AdminCompetitionsScreen() {
     return (
       <View style={[styles.container, styles.center, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={Brand.primary} />
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Competitions</Text>
+          <Pressable
+            style={styles.addButton}
+            onPress={() => router.push("/(tabs)/admin-competition-form")}
+          >
+            <IconSymbol name="plus" size={20} color="#fff" />
+            <Text style={styles.addButtonText}>Add New</Text>
+          </Pressable>
+        </View>
+
+        <View style={[styles.content, styles.center]}>
+          <Text style={styles.errorTitle}>Failed to load competitions</Text>
+          <Text style={styles.errorBody}>
+            {(error as Error)?.message || "Please try again."}
+          </Text>
+          <Pressable style={styles.emptyButton} onPress={() => refetch()}>
+            <Text style={styles.emptyButtonText}>Retry</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -267,6 +300,19 @@ const styles = StyleSheet.create({
   actionText: { fontSize: 13, fontWeight: "600", color: Brand.primary },
   empty: { alignItems: "center", paddingVertical: 60 },
   emptyText: { fontSize: 16, color: "#94A3B8", marginBottom: 16 },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 8,
+  },
+  errorBody: {
+    fontSize: 14,
+    color: "#64748B",
+    textAlign: "center",
+    marginBottom: 16,
+    paddingHorizontal: 24,
+  },
   emptyButton: {
     backgroundColor: Brand.primary,
     paddingHorizontal: 24,

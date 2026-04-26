@@ -3,6 +3,7 @@ import { Brand } from "@/constants/theme";
 import { useUser } from "@/context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import * as competitionsService from "@/services/competitions.service";
+import * as favoritesService from "@/services/favorites.service";
 import { Analytics } from "@/services/analytics";
 import {
   useLocalSearchParams,
@@ -11,6 +12,7 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -49,6 +51,8 @@ export default function CompetitionDetailPage() {
   const { registrations, registerCompetition } = useUser();
   const [activeTab, setActiveTab] = useState<"overview" | "registration" | "payment">("overview");
   const viewStartTime = useRef<number | null>(null);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [loadingFavorite, setLoadingFavorite] = useState(false);
 
   const { data: comp, isLoading, isError } = useQuery({
     queryKey: ["competition", id],
@@ -89,15 +93,51 @@ export default function CompetitionDetailPage() {
     setActiveTab("overview");
   }, [id]);
 
+  // Check if competition is favorited
+  useEffect(() => {
+    const checkFavorite = async () => {
+      if (!id) return;
+      try {
+        const favorited = await favoritesService.checkFavorited(id);
+        setIsFavorited(favorited);
+      } catch (err) {
+        console.error("Check favorite error:", err);
+      }
+    };
+    checkFavorite();
+  }, [id]);
+
   const handleBack = () => {
     if (router.canGoBack()) router.back();
     else router.push("/(tabs)/competitions");
   };
 
+  const handleToggleFavorite = async () => {
+    if (!id || loadingFavorite) return;
+
+    setLoadingFavorite(true);
+    try {
+      if (isFavorited) {
+        await favoritesService.remove(id);
+        setIsFavorited(false);
+        Alert.alert("Removed", "Competition removed from favorites");
+      } else {
+        await favoritesService.add(id);
+        setIsFavorited(true);
+        Alert.alert("Added", "Competition added to favorites");
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to update favorite");
+    } finally {
+      setLoadingFavorite(false);
+    }
+  };
+
   // Check if already registered
-  const already = comp
-    ? registrations.some((r) => r.compId === comp.id)
-    : false;
+  const existingRegistration = comp
+    ? registrations.find((registration) => registration.compId === comp.id)
+    : null;
+  const already = !!existingRegistration;
 
   // Check if registration is closed
   const isClosed = comp?.regCloseDate
@@ -152,7 +192,15 @@ export default function CompetitionDetailPage() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {comp.name}
         </Text>
-        <View style={{ width: 24 }} />
+        <Pressable
+          onPress={handleToggleFavorite}
+          style={styles.favoriteBtn}
+          disabled={loadingFavorite}
+        >
+          <Text style={styles.favoriteIcon}>
+            {loadingFavorite ? "⏳" : isFavorited ? "❤️" : "🤍"}
+          </Text>
+        </Pressable>
       </View>
 
       {/* Info card */}
@@ -306,7 +354,7 @@ export default function CompetitionDetailPage() {
         <Pressable
           style={[
             styles.registerBtn,
-            (already || isClosed) && styles.registerBtnDisabled,
+            isClosed && !already && styles.registerBtnDisabled,
           ]}
           onPress={() => {
             if (!already && !isClosed) {
@@ -316,6 +364,15 @@ export default function CompetitionDetailPage() {
                 fee: comp.fee,
               });
               registerCompetition(comp.id, { competitionName: comp.name, fee: comp.fee, category: comp.category });
+              router.push("/(tabs)/my-competitions");
+              return;
+            }
+            if (existingRegistration && ["approved", "paid", "completed"].includes(existingRegistration.status)) {
+              router.push({
+                pathname: "/(tabs)/my-registration-details",
+                params: { id: existingRegistration.id },
+              });
+              return;
             }
             router.push("/(tabs)/my-competitions");
           }}
@@ -325,7 +382,9 @@ export default function CompetitionDetailPage() {
             {isClosed
               ? "Registration Closed"
               : already
-              ? "✓ Already Registered"
+              ? existingRegistration && ["approved", "paid", "completed"].includes(existingRegistration.status)
+                ? "Open Competition Hub"
+                : "View Application"
               : "Register Now"}
           </Text>
         </Pressable>
@@ -355,6 +414,13 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#0F172A",
     marginHorizontal: 8,
+  },
+  favoriteBtn: {
+    padding: 8,
+    marginRight: -8,
+  },
+  favoriteIcon: {
+    fontSize: 24,
   },
   infoCard: {
     backgroundColor: "#fff",

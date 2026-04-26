@@ -8,7 +8,7 @@ import {
 } from "@/constants/theme";
 import { useUser } from "@/context/AuthContext";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -16,11 +16,13 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import * as competitionsService from "@/services/competitions.service";
+import * as favoritesService from "@/services/favorites.service";
 import { Analytics } from "@/services/analytics";
 
 const GRADES = ["SD", "SMP", "SMA"] as const;
@@ -82,6 +84,7 @@ export default function DiscoverScreen() {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
+  const [favoritedIds, setFavoritedIds] = useState<Set<string>>(new Set());
 
   const displayName =
     (user as any)?.fullName?.split(" ")[0] ??
@@ -112,6 +115,38 @@ export default function DiscoverScreen() {
     staleTime: 60 * 60 * 1000, // 1 hour
     enabled: registrations.length > 0, // Only fetch if user has registrations
   });
+
+  // Load favorited competitions
+  useEffect(() => {
+    const loadFavorites = async () => {
+      try {
+        const favorites = await favoritesService.list();
+        setFavoritedIds(new Set(favorites.map(f => f.id)));
+      } catch (err) {
+        console.error("Failed to load favorites:", err);
+      }
+    };
+    loadFavorites();
+  }, []);
+
+  // Toggle favorite
+  const toggleFavorite = async (compId: string, isFavorited: boolean) => {
+    try {
+      if (isFavorited) {
+        await favoritesService.remove(compId);
+        setFavoritedIds(prev => {
+          const next = new Set(prev);
+          next.delete(compId);
+          return next;
+        });
+      } else {
+        await favoritesService.add(compId);
+        setFavoritedIds(prev => new Set(prev).add(compId));
+      }
+    } catch (err) {
+      console.error("Failed to toggle favorite:", err);
+    }
+  };
 
   const categories = useMemo(() => {
     // Extract all unique categories (split multi-line categories)
@@ -183,7 +218,7 @@ export default function DiscoverScreen() {
               const accent = CategoryAccent[firstCategory] ?? Brand.primary;
               const catBg = CategoryBg[firstCategory] ?? "#F5F8FF";
               const emoji = CategoryEmoji[firstCategory] ?? "🏆";
-              const urgency = getDeadlineStatus(item.reg_close_date);
+              const urgency = getDeadlineStatus(item.regCloseDate);
 
               return (
                 <Pressable
@@ -205,7 +240,7 @@ export default function DiscoverScreen() {
                     {item.name}
                   </Text>
                   <Text style={styles.recommendedCardOrg} numberOfLines={1}>
-                    {item.organizer_name}
+                    {item.organizerName}
                   </Text>
                   <View style={{
                     paddingHorizontal: 8,
@@ -396,6 +431,8 @@ export default function DiscoverScreen() {
             .map((g) => g.trim())
             .filter(Boolean);
 
+          const isFavorited = favoritedIds.has(item.id);
+
           return (
             <Pressable
               style={[styles.card, { borderLeftColor: accent }]}
@@ -411,6 +448,20 @@ export default function DiscoverScreen() {
                 });
               }}
             >
+              {/* Heart icon in top-right corner */}
+              <TouchableOpacity
+                style={styles.heartBtn}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  toggleFavorite(item.id, isFavorited);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.heartIcon}>
+                  {isFavorited ? "❤️" : "🤍"}
+                </Text>
+              </TouchableOpacity>
+
               <View style={styles.cardTop}>
                 <View style={styles.cardInfo}>
                   <Text style={styles.cardTitle} numberOfLines={2}>
@@ -656,6 +707,27 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+    position: "relative",
+  },
+  heartBtn: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F8FAFC",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  heartIcon: {
+    fontSize: 18,
   },
   cardTop: { flexDirection: "row", alignItems: "flex-start" },
   cardInfo: { flex: 1 },

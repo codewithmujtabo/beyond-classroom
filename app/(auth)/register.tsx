@@ -557,6 +557,7 @@ export default function RegisterScreen() {
         showsVerticalScrollIndicator={
           false
         }
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
           <TouchableOpacity
@@ -654,6 +655,7 @@ export default function RegisterScreen() {
             error={errors.province}
             minSearchLength={0}
             allowCustom={false}
+            autoCapitalize="characters"
           />
 
           <AppAutocomplete
@@ -689,6 +691,7 @@ export default function RegisterScreen() {
             minSearchLength={0}
             allowCustom={false}
             editable={!!provinceCode}
+            autoCapitalize="characters"
           />
         </View>
 
@@ -717,7 +720,22 @@ export default function RegisterScreen() {
                 if (!regencyCode) {
                   return [];
                 }
-                if (!query || query.trim().length < 3) {
+                if (!query || query.trim().length === 0) {
+                  const schools = await schoolsService.searchSchools({
+                    regencyCode,
+                    grade,
+                    page: 1,
+                  });
+                  return schools.slice(0, 20).map((school) => ({
+                    id: school.npsn || school.id,
+                    name: school.name,
+                    metadata: {
+                      npsn: school.npsn,
+                      address: school.address,
+                    },
+                  }));
+                }
+                if (query.trim().length < 3) {
                   return [];
                 }
                 const schools = await schoolsService.searchSchools({
@@ -740,6 +758,7 @@ export default function RegisterScreen() {
               allowCustom={true}
               customLabel="My school is not listed"
               editable={!!regencyCode}
+              autoCapitalize="characters"
             />
 
             <View
